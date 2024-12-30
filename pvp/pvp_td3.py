@@ -141,17 +141,15 @@ class PVPTD3(TD3):
             # Compute critic loss
             critic_loss = []
             for (current_q_behavior, current_q_novice) in zip(current_q_behavior_values, current_q_novice_values):
-                # if self.intervention_start_stop_td:
-                #     l = 0.5 * F.mse_loss(
-                #         replay_data.stop_td * current_q_behavior, replay_data.stop_td * target_q_values
-                #     )
-                #
-                # else:
-                #     l = 0.5 * F.mse_loss(current_q_behavior, target_q_values)
+                if self.intervention_start_stop_td:
+                    l = 0.5 * F.mse_loss(
+                        replay_data.stop_td * current_q_behavior, replay_data.stop_td * target_q_values
+                    )
+            
+                else:
+                    l = 0.5 * F.mse_loss(current_q_behavior, target_q_values)
 
                 # ====== The key of Proxy Value Objective =====
-
-                l = 0.0
 
                 l += th.mean(
                     replay_data.interventions * self.cql_coefficient *
