@@ -35,6 +35,8 @@ if __name__ == '__main__':
     parser.add_argument("--wandb_team", type=str, default="victorique", help="The team name for wandb.")
     parser.add_argument("--log_dir", type=str, default="/home/caihy/pvp", help="Folder to store the logs.")
     parser.add_argument("--thr_classifier", type=float, default=0.25)
+    parser.add_argument("--init_bc_steps", type=int, default=5000)
+    parser.add_argument("--policy_delay", type=int, default=100)
     parser.add_argument("--bc_loss_weight", type=float, default=0.0)
 
     # parser.add_argument(
@@ -77,6 +79,8 @@ if __name__ == '__main__':
     print(f"We start logging training data into {trial_dir}")
 
     thr_classifier = args.thr_classifier
+    init_bc_steps = args.init_bc_steps
+    policy_delay = args.policy_delay
 
     # ===== Setup the config =====
     config = dict(
@@ -92,6 +96,7 @@ if __name__ == '__main__':
 
             # FakeHumanEnv config:
             thr_classifier=thr_classifier,
+            init_bc_steps=init_bc_steps,
         ),
 
         # Algorithm config
@@ -125,7 +130,8 @@ if __name__ == '__main__':
             verbose=2,
             seed=seed,
             device="auto",
-            policy_delay=20, ##increase policy delay
+            policy_delay=policy_delay, ##increase policy delay
+            init_bc_steps=init_bc_steps,
         ),
 
         # Experiment log

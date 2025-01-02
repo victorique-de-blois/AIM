@@ -52,7 +52,7 @@ class APVPTD3(TD3):
                 assert v in ["True", "False"]
                 v = v == "True"
                 self.extra_config[k] = v
-        for k in ["agent_data_ratio", "bc_loss_weight", "classifier"]:
+        for k in ["agent_data_ratio", "bc_loss_weight", "classifier", "init_bc_steps"]:
             if k in kwargs:
                 self.extra_config[k] = kwargs.pop(k)
 
@@ -60,6 +60,7 @@ class APVPTD3(TD3):
         self.use_balance_sample = use_balance_sample
         
         self.classifier = self.extra_config["classifier"]
+        self.starttrainc = False
         super(APVPTD3, self).__init__(*args, **kwargs)
 
     def _setup_model(self) -> None:
@@ -197,7 +198,7 @@ class APVPTD3(TD3):
             # Delayed policy updates
             if self._n_updates % self.policy_delay == 0:
                 
-                ##num of actor gd steps = self.policy_delay
+                ##num of actor gd steps = self.policy_delay // 2
                 for _ in range(self.policy_delay // 2):
                     if self.replay_buffer.pos > batch_size and self.human_data_buffer.pos > batch_size:
                         replay_data_agent = self.replay_buffer.sample(int(batch_size / 2), env=self._vec_normalize_env)
@@ -241,7 +242,8 @@ class APVPTD3(TD3):
                 stat_recorder["bc_loss"].append(bc_loss.mean().item())
                 
                 ##start train classifier
-                for _ in range(self.policy_delay // 2):
+                num_gd_steps = self.policy_delay // 2
+                for _ in range(num_gd_steps):
                     with th.no_grad():
                         replay_data_human = self.human_data_buffer.sample(int(batch_size), env=self._vec_normalize_env)
                         new_action = self.actor(replay_data_human.observations)
