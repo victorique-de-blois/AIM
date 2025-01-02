@@ -34,8 +34,8 @@ if __name__ == '__main__':
     parser.add_argument("--wandb_project", type=str, default="apvp", help="The project name for wandb.")
     parser.add_argument("--wandb_team", type=str, default="victorique", help="The team name for wandb.")
     parser.add_argument("--log_dir", type=str, default="/home/caihy/pvp", help="Folder to store the logs.")
-    parser.add_argument("--thr_classifier", type=float, default=0.25)
-    parser.add_argument("--init_bc_steps", type=int, default=5000)
+    parser.add_argument("--thr_classifier", type=float, default=0.4)
+    parser.add_argument("--init_bc_steps", type=int, default=1000)
     parser.add_argument("--policy_delay", type=int, default=100)
     parser.add_argument("--bc_loss_weight", type=float, default=0.0)
 
@@ -176,7 +176,7 @@ if __name__ == '__main__':
         return eval_env
 
 
-    eval_env = make_vec_env(_make_eval_env, n_envs=10, vec_env_cls=SubprocVecEnv)
+    eval_env = make_vec_env(_make_eval_env, n_envs=5, vec_env_cls=SubprocVecEnv)
 
     # ===== Setup the callbacks =====
     save_freq = args.save_freq  # Number of steps per model checkpoint
