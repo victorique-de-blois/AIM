@@ -23,6 +23,11 @@ if __name__ == '__main__':
     parser.add_argument("--wandb", action="store_true", help="Set to True to upload stats to wandb.")
     parser.add_argument("--wandb_project", type=str, default="", help="The project name for wandb.")
     parser.add_argument("--wandb_team", type=str, default="", help="The team name for wandb.")
+    
+    parser.add_argument("--adaptive_batch_size", default="False", type=str)
+    parser.add_argument("--only_bc_loss", default="False", type=str)
+    parser.add_argument("--ckpt", default="", type=str)
+    parser.add_argument("--bc_loss_weight", type=float, default=0.0)
 
     parser.add_argument(
         "--obs_mode",
@@ -66,7 +71,7 @@ if __name__ == '__main__':
             force_fps=10,
             disable_vis=False,
             port=port,
-            enable_takeover=True,
+            enable_takeover=False,
             env=dict(visualize=dict(location="center"))
         ),
 
@@ -74,6 +79,11 @@ if __name__ == '__main__':
         algo=dict(
             use_balance_sample=True,
             policy=TD3Policy,
+            agent_data_ratio=1.0,
+            adaptive_batch_size=args.adaptive_batch_size,
+            bc_loss_weight=args.bc_loss_weight,
+            only_bc_loss=args.only_bc_loss,
+            add_bc_loss="True" if args.bc_loss_weight > 0.0 else "False",
             replay_buffer_class=HACOReplayBuffer,
             replay_buffer_kwargs=dict(
                 discard_reward=True,  # We run in reward-free manner!
@@ -93,7 +103,7 @@ if __name__ == '__main__':
             learning_rate=1e-4,
             q_value_bound=1,
             optimize_memory_usage=True,
-            buffer_size=50_000,  # We only conduct experiment less than 50K steps
+            buffer_size=50000,  # We only conduct experiment less than 50K steps
             learning_starts=100,  # The number of steps before
             batch_size=128,  # Reduce the batch size for real-time copilot
             tau=0.005,
