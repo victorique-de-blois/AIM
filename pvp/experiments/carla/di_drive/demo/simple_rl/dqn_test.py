@@ -41,7 +41,7 @@ test_config = dict(
     policy=dict(
         cuda=True,
         # Pre-train model path
-        ckpt_path='',
+        ckpt_path='/home/caihy/pvp/pvp/experiments/carla/di_drive/demo/simple_rl/dqn21_bev32_buf2e5_lr1e4_bs128_ns3000_update4_train_ft/ckpt/iteration_0.pth.tar',
         model=dict(action_shape=21),
         eval=dict(evaluator=dict(
             render=True,
@@ -49,7 +49,7 @@ test_config = dict(
         ), ),
     ),
     # Need to change to you own carla server
-    server=[dict(carla_host='localhost', carla_ports=[9000, 9002, 2])],
+    server=[dict(carla_host='localhost', carla_ports=[9004, 9006, 2])],
 )
 
 main_config = EasyDict(test_config)

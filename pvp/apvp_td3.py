@@ -21,8 +21,6 @@ from pvp.sb3.td3.policies import TD3Policy
 
 logger = logging.getLogger(__name__)
 
-#note: better not change sb3 class
-
 class APVPTD3(TD3):
     classifier: TD3Policy
     

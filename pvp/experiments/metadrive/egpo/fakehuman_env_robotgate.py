@@ -221,6 +221,27 @@ class FakeHumanEnv(HumanInTheLoopEnv):
         last_t = self.last_takeover
         engine_info["takeover_start"] = True if not last_t and self.takeover else False
         engine_info["takeover"] = self.takeover
+        switch = (self.last_takeover != self.takeover)
+        if not switch:
+            self.len_wo_switch += 1
+        else:
+            if self.len_wo_switch > 0:
+                if self.last_takeover:
+                    self.human_end_takeover.append(self.len_wo_switch)
+                else:
+                    self.agent_end_explore.append(self.len_wo_switch)
+            self.len_wo_switch = 1
+        if d:
+            if self.last_takeover:
+                self.human_end_takeover.append(self.len_wo_switch)
+            else:
+                self.agent_end_explore.append(self.len_wo_switch)
+        from pvp.sb3.common.utils import safe_mean
+        engine_info["human_end_takeover"] = safe_mean(self.human_end_takeover)
+        engine_info["agent_end_explore"] = safe_mean(self.agent_end_explore)
+        engine_info["switch"] = switch
+        self.total_switch += switch
+        engine_info["total_switch"] = self.total_switch
         condition = engine_info["takeover_start"] if self.config["only_takeover_start_cost"] else self.takeover
         if not condition:
             engine_info["takeover_cost"] = 0
@@ -242,6 +263,9 @@ class FakeHumanEnv(HumanInTheLoopEnv):
         o, info = super(HumanInTheLoopEnv, self)._get_reset_return(reset_info)
         self.last_obs = o
         self.last_takeover = False
+        self.human_end_takeover = []
+        self.agent_end_explore = []
+        self.len_wo_switch = 0
         return o, info
 
 

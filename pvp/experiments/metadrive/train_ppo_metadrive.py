@@ -59,7 +59,7 @@ if __name__ == '__main__':
     config = dict(
         # ===== Environment =====
         env_config=dict(
-            use_render=False,  # Open the interface
+            use_render=True,  # Open the interface
             manual_control=False,  # Allow receiving control signal from external device
             # controller=control_device,
             # window_size=(1600, 1100),

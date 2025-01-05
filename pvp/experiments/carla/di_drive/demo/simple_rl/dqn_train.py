@@ -22,7 +22,7 @@ train_config = dict(
     exp_name='dqn21_bev32_buf2e5_lr1e4_bs128_ns3000_update4_train_ft',
     env=dict(
         # Collect and eval env num
-        collector_env_num=7,
+        collector_env_num=1,
         evaluator_env_num=1,
         simulator=dict(
             town='Town01',
@@ -50,7 +50,7 @@ train_config = dict(
         off_route_is_failure=True,
         off_route_distance=7.5,
         replay_path='./dqn_video',
-        visualize=dict(type='birdview', ),
+        visualize=dict(type='birdview', outputs=['show']),
         manager=dict(collect=dict(
             auto_reset=True,
             shared_memory=False,

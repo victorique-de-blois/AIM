@@ -398,7 +398,7 @@ def safe_mean(arr: Union[np.ndarray, list, deque]) -> np.ndarray:
     :param arr:
     :return:
     """
-    return np.nan if len(arr) == 0 else np.mean(arr)
+    return np.nan if len(arr) == 0 else np.nanmean(arr)
 
 
 def zip_strict(*iterables: Iterable) -> Iterable:

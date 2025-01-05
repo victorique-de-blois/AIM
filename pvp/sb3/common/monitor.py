@@ -128,7 +128,7 @@ class Monitor(gym.Wrapper):
                 else:
                     # Temporary workaround solution for accessing mean for non float/int
                     try:
-                        ep_info["ep_{}".format(key)] = np.mean(ep_data)
+                        ep_info["ep_{}".format(key)] = np.nanmean(ep_data)
                     except TypeError:
                         pass
             self.episode_returns.append(ep_rew)

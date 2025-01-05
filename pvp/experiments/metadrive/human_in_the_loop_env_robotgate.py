@@ -47,6 +47,10 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
     total_takeover_cost = 0
     total_takeover_count = 0
     total_cost = 0
+    total_switch = 0
+    human_end_takeover = []
+    agent_end_explore = []
+    len_wo_switch = 0
     takeover = False
     takeover_recorder = deque(maxlen=2000)
     agent_action = None
