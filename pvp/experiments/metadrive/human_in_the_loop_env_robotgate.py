@@ -10,6 +10,7 @@ from metadrive.utils.math import safe_clip
 from pvp.sb3.td3.policies import TD3Policy
 from pvp.sb3.common.utils import get_schedule_fn
 import torch as th
+from pvp.sb3.common.utils import safe_mean
 ScreenMessage.SCALE = 0.1
 
 HUMAN_IN_THE_LOOP_ENV_CONFIG = {
@@ -52,10 +53,18 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
     agent_end_explore = []
     len_wo_switch = 0
     takeover = False
+    last_t = False
     takeover_recorder = deque(maxlen=2000)
     agent_action = None
     in_pause = False
     start_time = time.time()
+    warning = True
+    total_miss = 0
+    total_mode_changes = 0
+    latency_agent = 1
+    latency_human = 1
+    history = deque(maxlen=8)
+    lst_act_diff = []
     
     def __init__(self, config):
         super(HumanInTheLoopEnv, self).__init__(config)
@@ -74,14 +83,32 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
     def default_config(self):
         config = super(HumanInTheLoopEnv, self).default_config()
         config.update(HUMAN_IN_THE_LOOP_ENV_CONFIG, allow_add_new_key=True)
+        config.update(
+            {
+                "init_bc_steps": 500,
+                "lr_classifier": 1e-4,
+                "thr_classifier_sw2agent": 0,
+                "thr_classifier_sw2human": 0.1,
+                "thr_actdiff": 0.04,
+            }
+        )
         return config
 
     def reset(self, *args, **kwargs):
         self.takeover = False
+        self.last_t = False
         self.agent_action = None
         obs, info = super(HumanInTheLoopEnv, self).reset(*args, **kwargs)
         # The training code is for older version of gym, so we discard the additional info from the reset.
+        self.last_obs = obs
         return obs
+    
+    def lasteq(self, dq: deque, n: int, a: bool):
+        if len(dq) < n:
+            return False
+        import itertools
+        arr = itertools.islice(dq, len(dq) - n, len(dq))
+        return (bool)(all(x == a for x in arr))
 
     def _get_step_return(self, actions, engine_info):
         """Compute takeover cost here."""
@@ -94,6 +121,31 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
         self.takeover = shared_control_policy.takeover if hasattr(shared_control_policy, "takeover") else False
         engine_info["takeover_start"] = True if not last_t and self.takeover else False
         engine_info["takeover"] = self.takeover
+        
+        self.last_t = last_t
+        switch = (last_t != self.takeover)
+        if not switch:
+            self.len_wo_switch += 1
+        else:
+            if self.len_wo_switch > 0:
+                if last_t:
+                    self.human_end_takeover.append(self.len_wo_switch)
+                else:
+                    self.agent_end_explore.append(self.len_wo_switch)
+            self.len_wo_switch = 1
+        if d:
+            if last_t:
+                self.human_end_takeover.append(self.len_wo_switch)
+            else:
+                self.agent_end_explore.append(self.len_wo_switch)
+        from pvp.sb3.common.utils import safe_mean
+        engine_info["human_end_takeover"] = safe_mean(self.human_end_takeover)
+        engine_info["agent_end_explore"] = safe_mean(self.agent_end_explore)
+        engine_info["switch"] = switch
+        self.total_switch += switch
+        engine_info["total_switch"] = self.total_switch
+        engine_info["total_mode_changes"] = self.total_mode_changes
+        
         condition = engine_info["takeover_start"] if self.config["only_takeover_start_cost"] else self.takeover
         if not condition:
             engine_info["takeover_cost"] = 0
@@ -106,6 +158,7 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
         engine_info["episode_native_cost"] = self.episode_cost
         self.total_cost += engine_info["cost"]
         engine_info["total_cost"] = self.total_cost
+        engine_info["mean_act_diff"] = safe_mean(self.lst_act_diff)
         # engine_info["total_cost_so_far"] = self.total_cost
         return o, r, d, engine_info
 
@@ -120,6 +173,48 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
         """Add additional information to the interface."""
         self.agent_action = copy.copy(actions)
         ret = super(HumanInTheLoopEnv, self).step(actions)
+        
+        last_warning = self.warning
+        if self.takeover and not last_warning and not self.last_t:
+            self.total_miss += 1
+        
+        uncertainty = self.compute_uncertainty(actions)
+        if last_warning:
+            thr_classifier = self.config["thr_classifier_sw2agent"]
+        else:
+            thr_classifier = self.config["thr_classifier_sw2human"]
+        thr_actdiff = self.config["thr_actdiff"]
+        
+        if not self.takeover:
+            act_diff = 0
+            decision = uncertainty - thr_classifier
+        else:
+            act_diff = np.mean((np.array(ret[-1]["raw_action"]) - actions) ** 2)
+            self.lst_act_diff.append(act_diff)
+            decision = max(uncertainty - thr_classifier, act_diff - thr_actdiff)
+        
+        self.history.append((bool)(decision > 0))
+        if last_warning:
+            self.warning = not self.lasteq(self.history, self.latency_human, False)
+            #switch to "not warning" if all last self.latency_human steps have decision < 0
+        else:
+            self.warning = self.lasteq(self.history, self.latency_agent, True)
+        if self.total_steps < self.config["init_bc_steps"]:
+            self.warning = True
+            #set warning = true if self.totaltimesteps < initbcsteps
+        
+        self.total_mode_changes += (last_warning != self.warning)
+        from panda3d.core import CardMaker, NodePath
+        cm = CardMaker('rect')
+        cm.set_frame(0, 0.2, 0, 0.1)
+        self.engine.rect = NodePath(cm.generate())
+        self.engine.rect.reparent_to(aspect2d)
+        self.engine.rect.set_pos(-1, 0, 0.8)
+        self.engine.rect.set_color((int)(self.warning), 1 - (int)(self.warning), 0, 1)  # RGBA
+
+        if self.takeover:
+            self.warning = True
+        
         while self.in_pause:
             self.engine.taskMgr.step()
 
@@ -127,6 +222,8 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
         if self.config["use_render"]:  # and self.config["main_exp"]: #and not self.config["in_replay"]:
             super(HumanInTheLoopEnv, self).render(
                 text={
+                    "Color Changes": self.total_mode_changes,
+                    "Total Miss": self.total_miss,
                     "Total Cost": round(self.total_cost, 2),
                     "Takeover Cost": round(self.total_takeover_cost, 2),
                     "Takeover": "TAKEOVER" if self.takeover else "NO",
@@ -134,6 +231,9 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
                     "Total Time": time.strftime("%M:%S", time.gmtime(time.time() - self.start_time)),
                     "Takeover Rate": "{:.2f}%".format(np.mean(np.array(self.takeover_recorder) * 100)),
                     "Pause": "Press E",
+                    "Diff in Actions": act_diff,
+                    "Mean Act diff": safe_mean(self.lst_act_diff),
+                    "Uncertainty": uncertainty,
                 }
             )
 
