@@ -65,6 +65,7 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
     latency_human = 1
     history = deque(maxlen=8)
     lst_act_diff = []
+    uncertainty = 0
     
     def __init__(self, config):
         super(HumanInTheLoopEnv, self).__init__(config)
@@ -158,7 +159,10 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
         engine_info["episode_native_cost"] = self.episode_cost
         self.total_cost += engine_info["cost"]
         engine_info["total_cost"] = self.total_cost
-        engine_info["mean_act_diff"] = safe_mean(self.lst_act_diff)
+        engine_info["mean_act_diff"] = safe_mean(self.lst_act_diff[-100:])
+        engine_info["total_mode_changes"] = self.total_mode_changes
+        engine_info["total_miss"] = self.total_miss
+        engine_info["uncertainty"] = self.uncertainty
         # engine_info["total_cost_so_far"] = self.total_cost
         return o, r, d, engine_info
 
@@ -230,13 +234,13 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
                     "Total Step": self.total_steps,
                     "Total Time": time.strftime("%M:%S", time.gmtime(time.time() - self.start_time)),
                     "Takeover Rate": "{:.2f}%".format(np.mean(np.array(self.takeover_recorder) * 100)),
-                    "Pause": "Press E",
+                    #"Pause": "Press E",
                     "Diff in Actions": act_diff,
-                    "Mean Act diff": safe_mean(self.lst_act_diff),
-                    "Uncertainty": uncertainty,
+                    "Mean Act diff": round(safe_mean(self.lst_act_diff[-100:]), 2),
+                    "Agent Uncertainty": round(uncertainty, 2),
                 }
             )
-
+        self.uncertainty = uncertainty
         self.total_steps += 1
 
         self.total_takeover_count += 1 if self.takeover else 0
