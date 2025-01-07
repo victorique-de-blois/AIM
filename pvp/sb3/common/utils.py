@@ -116,18 +116,29 @@ def get_linear_fn(start: float, end: float, end_fraction: float) -> Schedule:
     return func
 
 
-def constant_fn(val: float) -> Schedule:
+def constant_fn(val: float):
     """
     Create a function that returns a constant
     It is useful for learning rate schedule (to avoid code duplication)
 
-    :param val:
-    :return:
+    :param val: The constant value to return
+    :return: A function that takes an argument and returns the constant value
     """
-    def func(_):
-        return val
+    from functools import partial
+    return partial(_constant_value_fn, val=val)
 
-    return func
+
+def _constant_value_fn(_, val: float) -> float:
+    """
+    Helper function to return a constant value. This is defined at the global scope
+    to ensure it can be pickled and used with multiprocessing.
+
+    :param _: Ignored input (can be any type)
+    :param val: The constant value to return
+    :return: The constant value
+    """
+    return val
+
 
 
 def get_device(device: Union[th.device, str] = "auto") -> th.device:
