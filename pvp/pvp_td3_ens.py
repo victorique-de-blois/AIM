@@ -52,6 +52,7 @@ def _worker(remote: mp.connection.Connection, parent_remote: mp.connection.Conne
 class PVPTD3ENS(PVPTD3):
     def __init__(self, num_instances=1, *args, **kwargs):
         self.k = num_instances
+        self.classifier = kwargs.get("classifier")
         self.ensembles = [PVPTD3(seed=_, *args, **kwargs) for _ in range(num_instances)]
         self.actors = th.nn.ModuleList([self.ensembles[_].actor for _ in range(num_instances)])
         self.critics = th.nn.ModuleList([self.ensembles[_].critic for _ in range(num_instances)])
@@ -273,9 +274,9 @@ class PVPTD3ENS(PVPTD3):
 
                     self.policy_choice[idx] = np.random.randint(self.k)
 
-                    if len(self.estimates) > 25:
-                        self.switch2human_thresh = th.quantile(th.Tensor(self.estimates), 0.95).item()
-                        self.uthred = [self.switch2human_thresh, self.switch2robot_thresh]
+                    # if len(self.estimates) > 25:
+                    #     self.switch2human_thresh = th.quantile(th.Tensor(self.estimates), 0.95).item()
+                    #     self.uthred = [self.switch2human_thresh, self.switch2robot_thresh]
 
                     # Update stats
                     num_collected_episodes += 1
@@ -297,6 +298,7 @@ class PVPTD3ENS(PVPTD3):
         return RolloutReturn(num_collected_steps * env.num_envs, num_collected_episodes, continue_training)
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
+        stat_recorder = defaultdict(float)
         stat_recorders = []
         lm = batch_size // self.env.num_envs
         dd = ["takeover_current", "total_switch", "total_miss", "total_colorchange", "takeover"]
@@ -304,7 +306,7 @@ class PVPTD3ENS(PVPTD3):
             if hasattr(self, key):
                 stat_recorder[key].append(getattr(self, key))
         
-        if self.human_data_buffer.pos >= 1000 and not hasattr(self, "trained"):
+        if self.human_data_buffer.pos >= 999 and not hasattr(self, "trained"):
             self.trained = True
             #thompson sample
             len_train = (int)(0.9 * lm)
@@ -313,7 +315,7 @@ class PVPTD3ENS(PVPTD3):
                 tmp_buffers_id.append(np.random.randint(0, len_train, size=len_train))
 
             ##first training of student policies: bc
-            for _ in range(batch_size):
+            for _ in range(1000):
                 stat_recorders = []
                 self.num_gd += 1
                 for t_, remote in enumerate(self.remotes):
@@ -322,6 +324,21 @@ class PVPTD3ENS(PVPTD3):
                     remote.send(("train", (gradient_steps, batch_size, replay_data)))
                 for remote in self.remotes:
                     stat_recorders.append(remote.recv())
+            ##start train classifier
+            num_gd_steps = self.policy_delay // 2
+            for _ in range(num_gd_steps):
+                    with th.no_grad():
+                        replay_data_human = self.human_data_buffer.sample(int(batch_size), env=self._vec_normalize_env)
+                        new_action, _ = self.predict(replay_data_human.observations.cpu().numpy())
+                            
+                    current_c_behavior = self.classifier.critic(replay_data_human.observations, replay_data_human.actions_behavior)[0]
+                    current_c_novice = self.classifier.critic(replay_data_human.observations, th.Tensor(new_action).to(self.device))[0]
+                    loss_class = th.mean((current_c_behavior + 1) ** 2 + (current_c_novice - 1) ** 2)
+                        
+                    self.classifier.critic.optimizer.zero_grad()
+                    loss_class.backward()
+                    self.classifier.critic.optimizer.step()
+            stat_recorder["loss_class"] = loss_class.item()
             self.estimates = []
 
             train_data = self.human_data_buffer._get_samples(np.arange(len_train), env=self._vec_normalize_env)
@@ -333,9 +350,15 @@ class PVPTD3ENS(PVPTD3):
             discre = th.mean((train_data.actions_behavior - train_data.actions_novice) ** 2, dim = -1)
 
             self.switch2robot_thresh = th.mean(discre).item()
-            self.switch2human_thresh = th.quantile(heldout_estim, 0.95).item()
-            self.uthred = [self.switch2human_thresh, self.switch2robot_thresh]
-            self.human_data_buffer.pos = len_train
+            # self.switch2human_thresh = th.quantile(heldout_estim, 0.95).item()
+            # self.uthred = [self.switch2human_thresh, self.switch2robot_thresh]
+            # self.human_data_buffer.pos = len_train
+            with th.no_grad():
+                replay_data_human = self.human_data_buffer.sample(int(batch_size), env=self._vec_normalize_env)
+                new_action, _ = self.predict(replay_data_human.observations.cpu().numpy())
+                current_c_novice = self.classifier.critic(replay_data_human.observations, th.Tensor(new_action).to(self.device))[0]
+            self.switch2human_thresh = th.quantile(current_c_novice, self.extra_config["thr_classifier"]).item()
+            
         
         if hasattr(self, "trained") and (self._n_updates % self.policy_delay == 0):
             self.estimates = []
@@ -357,6 +380,28 @@ class PVPTD3ENS(PVPTD3):
                     remote.send(("train", (gradient_steps, batch_size, replay_data)))
                 for remote in self.remotes:
                     stat_recorders.append(remote.recv())
+            
+            ##start train classifier
+            num_gd_steps = self.policy_delay // 2
+            for _ in range(num_gd_steps):
+                    with th.no_grad():
+                        replay_data_human = self.human_data_buffer.sample(int(batch_size), env=self._vec_normalize_env)
+                        new_action, _ = self.predict(replay_data_human.observations.cpu().numpy())
+                            
+                    current_c_behavior = self.classifier.critic(replay_data_human.observations, replay_data_human.actions_behavior)[0]
+                    current_c_novice = self.classifier.critic(replay_data_human.observations, th.Tensor(new_action).to(self.device))[0]
+                    loss_class = th.mean((current_c_behavior + 1) ** 2 + (current_c_novice - 1) ** 2)
+                        
+                    self.classifier.critic.optimizer.zero_grad()
+                    loss_class.backward()
+                    self.classifier.critic.optimizer.step()
+            stat_recorder["loss_class"] = loss_class.item()
+            with th.no_grad():
+                replay_data_human = self.human_data_buffer.sample(int(batch_size), env=self._vec_normalize_env)
+                new_action, _ = self.predict(replay_data_human.observations.cpu().numpy())
+                current_c_novice = self.classifier.critic(replay_data_human.observations, th.Tensor(new_action).to(self.device))[0]
+            self.switch2human_thresh = th.quantile(current_c_novice, self.extra_config["thr_classifier"]).item()
+            ## change to quantile
 
         for remote in self.remotes:
             remote.send(("set_training_mode", False))
@@ -375,7 +420,7 @@ class PVPTD3ENS(PVPTD3):
         self._n_updates += gradient_steps
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
 
-        stat_recorder = defaultdict(float)
+        
         stat_recorder["num_gd"] = self.num_gd
         if hasattr(self, "trained"):
             stat_recorder["switch2human_thresh"] = self.switch2human_thresh

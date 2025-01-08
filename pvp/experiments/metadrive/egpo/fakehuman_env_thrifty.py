@@ -9,7 +9,7 @@ from metadrive.engine.logger import get_logger
 from metadrive.examples.ppo_expert.numpy_expert import ckpt_path
 from metadrive.policy.env_input_policy import EnvInputPolicy
 
-from pvp.experiments.metadrive.human_in_the_loop_env import HumanInTheLoopEnv
+from pvp.experiments.metadrive.human_in_the_loop_env_thrifty import HumanInTheLoopEnv
 
 FOLDER_PATH = pathlib.Path(__file__).parent
 
@@ -117,6 +117,10 @@ class FakeHumanEnv(HumanInTheLoopEnv):
 
                 "agent_policy": EnvInputPolicy,
                 "free_level": 0.95,
+                "init_bc_steps": 1000,
+                "lr_classifier": 1e-4,
+                "thr_classifier": 0.5,
+                "thr_actdiff": 0.3,
                 "manual_control": False,
                 "use_render": False,
                 "expert_deterministic": False,
@@ -171,18 +175,31 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                 expert_action = self.continuous_to_discrete(expert_action)
                 expert_action = self.discrete_to_continuous(expert_action)
 
-            from torch.nn import functional as F
-            if hasattr(self, "model"):
-                if not hasattr(self.model, "trained"):
-                    self.takeover = True
-                else:
-                    if self.takeover:
-                        self.takeover = (np.mean((actions - expert_action) ** 2) >= self.model.switch2robot_thresh)
-                    else:
-                        unc = self.model.compute_unc(self.last_obs)
-                        self.takeover = (unc > self.model.switch2human_thresh)
-            else:
+            # from torch.nn import functional as F
+            # if hasattr(self, "model"):
+            #     if not hasattr(self.model, "trained"):
+            #         self.takeover = True
+            #     else:
+            #         if self.takeover:
+            #             self.takeover = (np.mean((actions - expert_action) ** 2) >= self.model.switch2robot_thresh)
+            #         else:
+            #             unc = self.model.compute_unc(self.last_obs)
+            #             self.takeover = (unc > self.model.switch2human_thresh)
+            # else:
+            #     self.takeover = True
+            
+                    
+            if self.total_steps <= self.config['init_bc_steps']:
                 self.takeover = True
+            else:
+                unc = self.compute_uncertainty(actions)
+                self.takeover = False
+                if not self.last_takeover:
+                    if unc > self.model.switch2human_thresh: #self.config['thr_classifier']:
+                        self.takeover = True
+                else:
+                    if np.mean((actions - expert_action) ** 2) > self.config['thr_actdiff']:
+                        self.takeover = True
                 
             if self.takeover:
                 actions = expert_action

@@ -53,6 +53,10 @@ if __name__ == '__main__':
     #     type=str,
     #     help="The control device, selected from [wheel, gamepad, keyboard]."
     # )
+    parser.add_argument("--thr_classifier", type=float, default=0.9)
+    parser.add_argument("--init_bc_steps", type=int, default=1000)
+    parser.add_argument("--thr_actdiff", type=float, default=0.4)
+    
     args = parser.parse_args()
 
     # ===== Set up some arguments =====
@@ -77,7 +81,9 @@ if __name__ == '__main__':
     print(f"We start logging training data into {trial_dir}")
 
     free_level = args.free_level
-
+    thr_classifier = args.thr_classifier
+    init_bc_steps = args.init_bc_steps
+    thr_actdiff = args.thr_actdiff
     # ===== Setup the config =====
     config = dict(
 
@@ -92,6 +98,9 @@ if __name__ == '__main__':
 
             # FakeHumanEnv config:
             free_level=free_level,
+            thr_classifier=thr_classifier,
+            init_bc_steps=init_bc_steps,
+            thr_actdiff=thr_actdiff,
         ),
 
         # Algorithm config
@@ -102,6 +111,7 @@ if __name__ == '__main__':
             only_bc_loss=args.only_bc_loss,
             add_bc_loss="True" if args.bc_loss_weight > 0.0 else "False",
             use_balance_sample=True,
+            thr_classifier=thr_classifier,
             agent_data_ratio=1.0,
             policy=TD3Policy,
             replay_buffer_class=HACOReplayBuffer,
@@ -146,6 +156,7 @@ if __name__ == '__main__':
 
     def _make_train_env():
         train_env = FakeHumanEnv(config=config["env_config"], )
+        config["algo"]["classifier"] = train_env.classifier
         train_env = Monitor(env=train_env, filename=str(trial_dir))
         train_env = SharedControlMonitor(env=train_env, folder=trial_dir / "data", prefix=trial_name)
         return train_env

@@ -37,6 +37,10 @@ if __name__ == '__main__':
         type=str,
         help="The control device, selected from [wheel, gamepad, keyboard]."
     )
+    parser.add_argument("--thr_classifier", type=float, default=0.8)
+    parser.add_argument("--init_bc_steps", type=int, default=1000)
+    parser.add_argument("--thr_actdiff", type=float, default=0.04)
+    
     args = parser.parse_args()
 
     # ===== Set up some arguments =====
@@ -56,7 +60,9 @@ if __name__ == '__main__':
     os.makedirs(experiment_dir, exist_ok=True)
     os.makedirs(trial_dir, exist_ok=True)
     print(f"We start logging training data into {trial_dir}")
-
+    thr_classifier = args.thr_classifier
+    init_bc_steps = args.init_bc_steps
+    thr_actdiff = args.thr_actdiff
     # ===== Setup the config =====
     config = dict(
 
@@ -68,8 +74,8 @@ if __name__ == '__main__':
             window_size=(1600, 1100),
             thr_classifier_sw2agent=0,
             thr_classifier_sw2human=0.1,
-            thr_actdiff=0.04,
-            init_bc_steps=1000,
+            init_bc_steps=init_bc_steps,
+            thr_actdiff=thr_actdiff,
         ),
 
         # Algorithm config
@@ -81,6 +87,7 @@ if __name__ == '__main__':
                 discard_reward=True,  # We run in reward-free manner!
             ),
             policy_kwargs=dict(net_arch=[256, 256]),
+            thr_classifier=thr_classifier,
             env=None,
             learning_rate=1e-4,
             agent_data_ratio=1.0,

@@ -61,12 +61,13 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
     warning = True
     total_miss = 0
     total_mode_changes = 0
-    latency_agent = 1
-    latency_human = 1
-    history = deque(maxlen=8)
+    latency_agent = 3
+    latency_human = 8
+    history = deque(maxlen=10)
     lst_act_diff = []
     uncertainty = 0
     color_red = True
+    classifier: TD3Policy
     
     def __init__(self, config):
         super(HumanInTheLoopEnv, self).__init__(config)
@@ -190,7 +191,7 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
         #     thr_classifier = self.config["thr_classifier_sw2human"]
         # thr_actdiff = self.config["thr_actdiff"]
         if hasattr(self, "model") and hasattr(self.model, "trained"):
-            var_actions = self.model.compute_unc(self.last_obs)
+            var_actions = self.compute_uncertainty(actions)
             
             if not self.takeover:
                 act_diff = 0
@@ -198,7 +199,7 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
             else:
                 act_diff = np.mean((np.array(ret[-1]["raw_action"]) - actions) ** 2)
                 self.lst_act_diff.append(act_diff)
-                decision = max(act_diff - self.model.switch2robot_thresh, var_actions - self.model.switch2human_thresh)
+                decision = max(act_diff - self.config['thr_actdiff'], var_actions - self.model.switch2human_thresh)
         else:
             act_diff = 0
             var_actions = 0
@@ -232,23 +233,23 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
             self.engine.taskMgr.step()
 
         self.takeover_recorder.append(self.takeover)
-        if self.config["use_render"]:  # and self.config["main_exp"]: #and not self.config["in_replay"]:
-            super(HumanInTheLoopEnv, self).render(
-                text={
-                    "Color Changes": self.total_mode_changes,
-                    "Total Miss": self.total_miss,
-                    "Total Cost": round(self.total_cost, 2),
-                    "Takeover Cost": round(self.total_takeover_cost, 2),
-                    "Takeover": "TAKEOVER" if self.takeover else "NO",
-                    "Total Step": self.total_steps,
-                    "Total Time": time.strftime("%M:%S", time.gmtime(time.time() - self.start_time)),
-                    "Takeover Rate": "{:.2f}%".format(np.mean(np.array(self.takeover_recorder) * 100)),
-                    #"Pause": "Press E",
-                    "Diff in Actions": act_diff,
-                    "Mean Act diff": round(safe_mean(self.lst_act_diff[-100:]), 2),
-                    "Agent Uncertainty": round(var_actions, 2),
-                }
-            )
+        # if self.config["use_render"]:  # and self.config["main_exp"]: #and not self.config["in_replay"]:
+        #     super(HumanInTheLoopEnv, self).render(
+        #         text={
+        #             "Color Changes": self.total_mode_changes,
+        #             "Total Miss": self.total_miss,
+        #             "Total Cost": round(self.total_cost, 2),
+        #             "Takeover Cost": round(self.total_takeover_cost, 2),
+        #             "Takeover": "TAKEOVER" if self.takeover else "NO",
+        #             "Total Step": self.total_steps,
+        #             "Total Time": time.strftime("%M:%S", time.gmtime(time.time() - self.start_time)),
+        #             "Takeover Rate": "{:.2f}%".format(np.mean(np.array(self.takeover_recorder) * 100)),
+        #             #"Pause": "Press E",
+        #             "Diff in Actions": act_diff,
+        #             "Mean Act diff": round(safe_mean(self.lst_act_diff[-100:]), 2),
+        #             "Agent Uncertainty": round(var_actions, 2),
+        #         }
+        #     )
         self.uncertainty = var_actions
         self.total_steps += 1
 
