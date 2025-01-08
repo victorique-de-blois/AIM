@@ -30,7 +30,7 @@ logger = logging.getLogger(__file__)
 
 ADDITIONAL_HEIGHT = 300
 RULE_WIDTH = 5
-SCREEN_SIZE = 2000
+SCREEN_SIZE = 1100
 DEFAULT_TEXT = "Approve: Space/Down | L/R/Forward: Arrow Keys | Toggle: T | Pickup: P | Drop: D | Done: X | Quit: Esc \n"
 
 

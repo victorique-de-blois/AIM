@@ -71,7 +71,7 @@ if __name__ == '__main__':
             force_fps=10,
             disable_vis=False,
             port=port,
-            enable_takeover=False,
+            enable_takeover=True,
             env=dict(visualize=dict(location="center"))
         ),
 
