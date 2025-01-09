@@ -198,7 +198,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                     if unc > self.model.switch2human_thresh: #self.config['thr_classifier']:
                         self.takeover = True
                 else:
-                    if np.mean((actions - expert_action) ** 2) > self.config['thr_actdiff']:
+                    if np.mean((actions - expert_action) ** 2) > self.model.switch2robot_thresh: #self.config['thr_actdiff']:
                         self.takeover = True
                 
             if self.takeover:
