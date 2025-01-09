@@ -80,7 +80,13 @@ class Actor(BasePolicy):
         # Note: the deterministic deterministic parameter is ignored in the case of TD3.
         #   Predictions are always deterministic.
         return self.forward(observation)
-
+    def reset_parameters(self):
+        """
+        Reset the parameters of all layers in the actor's policy network.
+        """
+        for module in self.mu.modules():
+            if hasattr(module, "reset_parameters"):
+                module.reset_parameters()
 
 class TD3Policy(BasePolicy):
     """

@@ -925,6 +925,15 @@ class ContinuousCritic(BaseModel):
         with th.no_grad():
             features = self.extract_features(obs)
         return self.q_networks[1](th.cat([features, actions], dim=1))
+    
+    def reset_parameters(self):
+        """
+        Reset the parameters of all Q-networks in the critic.
+        """
+        for q_net in self.q_networks:
+            for module in q_net.modules():
+                if hasattr(module, 'reset_parameters'):
+                    module.reset_parameters()
 
 
 _policy_registry = dict()  # type: Dict[Type[BasePolicy], Dict[str, Type[BasePolicy]]]
