@@ -112,13 +112,13 @@ if __name__ == '__main__':
         env_class = MiniGridMultiRoomN4S5
     else:
         raise ValueError("Unknown environment: {}".format(env_name))
-    env = wrap_minigrid_env(env_class, enable_takeover=True)
+    env, unwrapped_env = wrap_minigrid_env(env_class, enable_takeover=True)
     env = Monitor(env=env, filename=str(trial_dir))
     train_env = SharedControlMonitor(env=env, folder=trial_dir / "data", prefix=trial_name, save_freq=100)
 
     # ===== Also build the eval env =====
     def _make_eval_env():
-        env = wrap_minigrid_env(env_class, enable_takeover=False)
+        env, _ = wrap_minigrid_env(env_class, enable_takeover=False)
         env = Monitor(env=env, filename=str(trial_dir))
         return env
 
@@ -145,6 +145,22 @@ if __name__ == '__main__':
 
     # ===== Setup the training algorithm =====
     model = PVPDQN(**config["algo"])
+    import torch as th
+    from pvp.sb3.common.utils import get_schedule_fn
+    classifier = CnnPolicy(model.observation_space,
+                            model.action_space,
+                            get_schedule_fn(1e-4),
+                            features_extractor_class=MinigridCNN, 
+                            activation_fn=th.nn.Tanh,
+                            net_arch=[
+                                64,
+                            ])
+    classifier = classifier.to("cuda")
+    classifier.set_training_mode(True)
+    model.classifier = classifier
+    unwrapped_env.classifier = classifier
+    unwrapped_env.model = model
+    
 
     # ===== Launch training =====
     model.learn(

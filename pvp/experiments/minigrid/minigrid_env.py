@@ -20,7 +20,10 @@ from minigrid.wrappers import ImgObsWrapper
 
 from pvp.sb3.common.monitor import Monitor
 import dataclasses
-
+from pvp.experiments.minigrid.minigrid_model import MinigridCNN
+from pvp.sb3.dqn.policies import CnnPolicy
+import torch as th
+from pvp.sb3.common.utils import get_schedule_fn
 # Someone change the logging config. So we have to revert them here.
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -239,10 +242,19 @@ class MinigridWrapper(gym.Wrapper):
         self.use_render = self.enable_human = env.render_mode == "human"
         self.keyboard_action = None
         self.valid_key_press = False
+        
+    def compute_uncertainty(self, action):
+        th_obs = th.from_numpy(self.model._last_obs).to(self.classifier.device)
+        unc = self.classifier.q_net(th_obs).squeeze()
+        return unc
 
     def step(self, a):
         self.total_steps += 1
         self.update_caption(a)
+        
+        if hasattr(self, "model"):
+            current_unc = self.compute_uncertainty(a)
+            print(current_unc)
 
         if self.enable_human:
             should_break = False
@@ -270,6 +282,7 @@ class MinigridWrapper(gym.Wrapper):
         cost = 0
         behavior_action = self.keyboard_action if should_takeover else a
         o, r, tm, tc, i = super(MinigridWrapper, self).step(behavior_action)
+        self.last_obs = o
         takeover_start = should_takeover and not self.takeover
         i["cost"] = cost
         i["total_takeover"] = self.total_takeover
@@ -288,6 +301,7 @@ class MinigridWrapper(gym.Wrapper):
         self.takeover = False
         self.keyboard_action = None
         ret = self.env.reset(*args, **kwargs)
+        self.last_obs = ret
         if self.use_render:
             pygame.display.set_caption("Reset!")
             self.env.render()
@@ -561,6 +575,7 @@ def wrap_minigrid_env(env_class, enable_takeover, use_fake_human=False, use_fake
         env = env_class(render_mode="human", screen_size=SCREEN_SIZE)
     else:
         env = env_class()
+    unwrapped_env = env
 
     if use_fake_human:
         if use_fake_human_with_failure:
@@ -573,7 +588,7 @@ def wrap_minigrid_env(env_class, enable_takeover, use_fake_human=False, use_fake
     env = FrameStack(env, num_stack=4)
     env = ConcatenateChannel(env)
     env = OldGymWrapper(env)
-    return env
+    return env, unwrapped_env
 
 
 if __name__ == '__main__':
