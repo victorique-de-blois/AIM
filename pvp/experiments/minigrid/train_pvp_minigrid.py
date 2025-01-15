@@ -24,7 +24,7 @@ if __name__ == '__main__':
     parser.add_argument("--exp_name", default="pvp_minigrid", type=str, help="The name for this batch of experiments.")
     parser.add_argument("--seed", default=0, type=int, help="The random seed.")
     parser.add_argument("--wandb", type=bool, default=True, help="Set to True to upload stats to wandb.")
-    parser.add_argument("--wandb_project", type=str, default="apvp_real", help="The project name for wandb.")
+    parser.add_argument("--wandb_project", type=str, default="grid", help="The project name for wandb.")
     parser.add_argument("--wandb_team", type=str, default="victorique", help="The team name for wandb.")
     
     parser.add_argument(
@@ -93,6 +93,9 @@ if __name__ == '__main__':
             verbose=2,
             seed=seed,
             device="auto",
+            policy_delay = 1, ## no delay
+            init_bc_steps = 100,
+            thr_classifier = 0.9,
         ),
 
         # Experiment log

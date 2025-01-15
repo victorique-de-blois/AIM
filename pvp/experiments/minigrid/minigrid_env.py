@@ -244,9 +244,10 @@ class MinigridWrapper(gym.Wrapper):
         self.valid_key_press = False
         
     def compute_uncertainty(self, action):
+        self.classifier.set_training_mode(False)
         th_obs = th.from_numpy(self.model._last_obs).to(self.classifier.device)
         unc = self.classifier.q_net(th_obs).squeeze()
-        return unc
+        return unc[(int)(action)].item()
 
     def step(self, a):
         self.total_steps += 1
@@ -254,8 +255,27 @@ class MinigridWrapper(gym.Wrapper):
         
         if hasattr(self, "model"):
             current_unc = self.compute_uncertainty(a)
-            print(current_unc)
+        
+        self.last_enable_human = self.enable_human
+        ready_robot_gate = False
+        if not hasattr(self, "model"):
+            self.enable_human = False
+        elif self.total_steps <= self.model.init_bc_steps:
+            self.enable_human = True
+        else:
+            ready_robot_gate = True
+            if not self.last_enable_human and current_unc > self.model.switch2human_thresh:
+                self.enable_human = True
 
+        self.keyboard_action = None
+        #if not self.enable_human:
+        #    print(self.total_steps)
+        if self.enable_human:
+            self.update_additional_text("Request Human Help!!")
+        else:
+            self.update_additional_text("I can handle it.")
+        if self.use_render:
+            self.env.render()
         if self.enable_human:
             should_break = False
             while not should_break:
@@ -281,6 +301,9 @@ class MinigridWrapper(gym.Wrapper):
         should_takeover = self.keyboard_action is not None
         cost = 0
         behavior_action = self.keyboard_action if should_takeover else a
+        
+        if self.enable_human and behavior_action == a and ready_robot_gate:
+            self.enable_human = False
         o, r, tm, tc, i = super(MinigridWrapper, self).step(behavior_action)
         self.last_obs = o
         takeover_start = should_takeover and not self.takeover
@@ -575,7 +598,6 @@ def wrap_minigrid_env(env_class, enable_takeover, use_fake_human=False, use_fake
         env = env_class(render_mode="human", screen_size=SCREEN_SIZE)
     else:
         env = env_class()
-    unwrapped_env = env
 
     if use_fake_human:
         if use_fake_human_with_failure:
@@ -584,6 +606,7 @@ def wrap_minigrid_env(env_class, enable_takeover, use_fake_human=False, use_fake
             env = MinigridWrapperWithFakeHuman(env)
     else:
         env = MinigridWrapper(env)
+    unwrapped_env = env
     env = ImgObsWrapper(env)
     env = FrameStack(env, num_stack=4)
     env = ConcatenateChannel(env)

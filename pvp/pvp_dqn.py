@@ -12,7 +12,7 @@ from pvp.sb3.common.save_util import recursive_getattr, save_to_zip_file
 from pvp.sb3.dqn.dqn import DQN, compute_entropy
 from pvp.sb3.haco.haco_buffer import HACOReplayBuffer, concat_samples, HACODictReplayBufferSamples
 import tqdm
-
+from pvp.sb3.dqn.policies import CnnPolicy
 
 def sample_and_concat(replay_data_agent, replay_data_human, agent_data_index):
     replay_data = concat_samples(HACODictReplayBufferSamples(
@@ -34,6 +34,7 @@ def sample_and_concat(replay_data_agent, replay_data_human, agent_data_index):
 
 
 class PVPDQN(DQN):
+    classifier: CnnPolicy
     def __init__(self, q_value_bound=1., *args, **kwargs):
         kwargs["replay_buffer_class"] = HACOReplayBuffer
         if "replay_buffer_class" not in kwargs:
@@ -53,6 +54,23 @@ class PVPDQN(DQN):
             self.add_bc_loss = kwargs.pop("add_bc_loss")
         else:
             self.add_bc_loss = False
+        
+        if "policy_delay" in kwargs:
+            self.policy_delay = kwargs.pop("policy_delay")
+        else:
+            self.policy_delay = 1
+        
+        if "init_bc_steps" in kwargs:
+            self.init_bc_steps = kwargs.pop("init_bc_steps")
+        else:
+            self.init_bc_steps = 100
+            
+        if "thr_classifier" in kwargs:
+            self.thr_classifier = kwargs.pop("thr_classifier")
+        else:
+            self.thr_classifier = 0.9
+        
+        self.delay = 0
 
         self.gradient_steps_multiplier = kwargs.pop("gradient_steps_multiplier", 1)
         super(PVPDQN, self).__init__(*args, **kwargs)
@@ -69,6 +87,7 @@ class PVPDQN(DQN):
         if self.human_data_buffer.pos == 0 and self.replay_buffer.pos == 0:
             return
 
+        self.classifier.set_training_mode(True)
         # Switch to train mode (this affects batch norm / dropout)
         self.policy.set_training_mode(True)
         # Update learning rate according to schedule
@@ -115,7 +134,11 @@ class PVPDQN(DQN):
 
                 should_sample_agent = False
 
-        for _ in tqdm.trange(gradient_steps, desc="Gradient Steps"):
+        if self.delay % self.policy_delay == 0:
+            n_upd = self.policy_delay
+        else:
+            n_upd = 0
+        for _ in tqdm.trange(gradient_steps * n_upd, desc="Gradient Steps"):
             if self.adaptive_batch_size:
                 pass
 
@@ -212,6 +235,86 @@ class PVPDQN(DQN):
 
             stat_recorder["q_value_behavior"].append(current_behavior_q_values.mean().item())
             stat_recorder["q_value_novice"].append(current_novice_q_value.mean().item())
+        
+        if self.human_data_buffer.pos == 0:
+            n_upd = 0
+        
+        for _ in tqdm.trange(gradient_steps * n_upd, desc="Gradient Steps"):
+            human_num_samples = int(min(batch_size, self.human_data_buffer.pos))
+            replay_data = self.human_data_buffer.sample(human_num_samples, env=self._vec_normalize_env, discard_rgb=discard_rgb, return_features=return_features)
+                
+            # with th.no_grad():
+            #     # Compute the next Q-values using the target network
+            #     # next_q_values, _ = self.q_net_target(replay_data.next_observations)
+            #     next_q_values= self.q_net_target(replay_data.next_observations)
+            #     # Follow greedy policy: use the one with the highest value
+            #     next_q_values, _ = next_q_values.max(dim=1)
+            #     # Avoid potential broadcast issue
+            #     next_q_values = next_q_values.reshape(-1, 1)
+            #     # 1-step TD target
+            #     assert replay_data.rewards.mean().item() == 0.0
+            #     target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
+
+            # Get current Q-values estimates
+            # current_q_values, _ = self.q_net(replay_data.observations)
+            current_q_values = self.classifier.q_net(replay_data.observations)
+
+            stat_recorder["c_entropy"].append(compute_entropy(current_q_values))
+
+            # Retrieve the q-values for the actions from the replay buffer
+            current_behavior_q_values = th.gather(current_q_values, dim=1, index=replay_data.actions_behavior.long())
+
+            current_novice_q_value_method1 = th.gather(current_q_values, dim=1, index=replay_data.actions_novice.long())
+
+            current_novice_q_value = current_novice_q_value_method1
+
+            mask = replay_data.interventions
+            # stat_recorder["no_intervention_rate"].append(mask.float().mean().item())
+
+            no_overlap = replay_data.actions_behavior != replay_data.actions_novice
+            # stat_recorder["no_overlap_rate"].append(no_overlap.float().mean().item())
+            # stat_recorder["masked_no_overlap_rate"].append((mask * no_overlap).float().mean().item())
+
+            pvp_loss = \
+                F.mse_loss(
+                    mask * current_behavior_q_values,
+                    mask * (-self.q_value_bound) * th.ones_like(current_behavior_q_values)
+                ) + \
+                F.mse_loss(
+                    mask * no_overlap * current_novice_q_value,
+                    mask * no_overlap * self.q_value_bound * th.ones_like(current_novice_q_value)
+                )
+
+            # Compute Huber loss (less sensitive to outliers)
+            #loss_td = F.smooth_l1_loss(current_behavior_q_values, target_q_values)
+
+            #loss = loss_td.mean() + pvp_loss.mean()
+            loss = pvp_loss.mean()
+            
+            stat_recorder["c_loss"].append(loss.item())
+
+            # Optimize the policy
+            self.classifier.optimizer.zero_grad()
+            loss.backward()
+            # Clip gradient norm
+            th.nn.utils.clip_grad_norm_(self.classifier.parameters(), self.max_grad_norm)
+            self.classifier.optimizer.step()
+
+            stat_recorder["c_value_behavior"].append(current_behavior_q_values.mean().item())
+            stat_recorder["c_value_novice"].append(current_novice_q_value.mean().item())
+        
+        if n_upd > 0:
+            with th.no_grad():
+                if self.replay_buffer.pos >= 32:
+                    replay_data = self.replay_buffer.sample(int(batch_size), env=self._vec_normalize_env, discard_rgb=discard_rgb, return_features=return_features)
+                else:
+                    replay_data = self.human_data_buffer.sample(int(batch_size), env=self._vec_normalize_env, discard_rgb=discard_rgb, return_features=return_features)
+                
+                current_q_values = self.classifier.q_net(replay_data.observations)
+                current_novice_q_value_method1 = th.gather(current_q_values, dim=1, index=replay_data.actions_novice.long())
+            self.switch2human_thresh = th.quantile(current_novice_q_value_method1, self.thr_classifier).item()
+            
+        self.delay += 1
         # Increase update counter
         self._n_updates += gradient_steps
 
