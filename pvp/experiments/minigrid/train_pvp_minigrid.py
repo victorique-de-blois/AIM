@@ -9,7 +9,7 @@ from pathlib import Path
 import torch
 
 from pvp.experiments.minigrid.minigrid_env import MiniGridMultiRoomN2S4, MiniGridMultiRoomN4S5, \
-    MiniGridEmpty6x6, wrap_minigrid_env
+    MiniGridEmpty6x6, MiniGridMultiRoomN4S16, wrap_minigrid_env
 from pvp.experiments.minigrid.minigrid_model import MinigridCNN
 from pvp.pvp_dqn import PVPDQN
 from pvp.sb3.common.callbacks import CallbackList, CheckpointCallback
@@ -32,7 +32,7 @@ if __name__ == '__main__':
         default="emptyroom",
         type=str,
         help="Nick name of the environment.",
-        choices=["emptyroom", "tworoom", "fourroom"]
+        choices=["emptyroom", "tworoom", "fourroom", "fourroomlarge"]
     )
     args = parser.parse_args()
 
@@ -113,6 +113,8 @@ if __name__ == '__main__':
         env_class = MiniGridMultiRoomN2S4
     elif env_name == "fourroom":
         env_class = MiniGridMultiRoomN4S5
+    elif env_name == "fourroomlarge":
+        env_class = MiniGridMultiRoomN4S16
     else:
         raise ValueError("Unknown environment: {}".format(env_name))
     env, unwrapped_env = wrap_minigrid_env(env_class, enable_takeover=True)

@@ -232,6 +232,17 @@ class MiniGridMultiRoomN4S5(MultiRoomEnv):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, minNumRooms=6, maxNumRooms=6, maxRoomSize=5, **kwargs)
 
+class MiniGridMultiRoomN4S16(MultiRoomEnv):
+    """Four Room.
+    Following:
+        register(minRoomSize=5, 
+            id="MiniGrid-MultiRoom-N4-S5-v0",
+            entry_point="minigrid.envs:MultiRoomEnv",
+            kwargs={"minNumRooms": 6, "maxNumRooms": 6, "maxRoomSize": 5},
+        )
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, minNumRooms=6, maxNumRooms=6, maxRoomSize=6, **kwargs)
 
 class MinigridWrapper(gym.Wrapper):
     def __init__(self, env):
