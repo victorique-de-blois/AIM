@@ -59,7 +59,7 @@ if __name__ == '__main__':
     config = dict(
         # ===== Environment =====
         env_config=dict(
-            use_render=True,  # Open the interface
+            use_render=False,  # Open the interface
             manual_control=False,  # Allow receiving control signal from external device
             # controller=control_device,
             # window_size=(1600, 1100),
@@ -174,7 +174,7 @@ if __name__ == '__main__':
         # eval
         eval_env=eval_env,
         eval_freq=200,
-        n_eval_episodes=100,
+        n_eval_episodes=10,
         eval_log_path=str(trial_dir),
 
         # logging

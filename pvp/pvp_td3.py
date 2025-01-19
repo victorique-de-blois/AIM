@@ -272,7 +272,7 @@ class PVPTD3(TD3):
         buffer_save_timesteps: int = 2000,
         save_path_human: Union[str, pathlib.Path, io.BufferedIOBase] = "",
         save_path_replay: Union[str, pathlib.Path, io.BufferedIOBase] = "",
-        save_buffer: bool = True,
+        save_buffer: bool = False,
         load_buffer: bool = False,
         load_path_human: Union[str, pathlib.Path, io.BufferedIOBase] = "",
         load_path_replay: Union[str, pathlib.Path, io.BufferedIOBase] = "",

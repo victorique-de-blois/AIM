@@ -117,7 +117,7 @@ if __name__ == '__main__':
         env_class = MiniGridMultiRoomN4S16
     else:
         raise ValueError("Unknown environment: {}".format(env_name))
-    env, unwrapped_env = wrap_minigrid_env(env_class, enable_takeover=True)
+    env, unwrapped_env = wrap_minigrid_env(env_class, enable_takeover=False)
     env = Monitor(env=env, filename=str(trial_dir))
     train_env = SharedControlMonitor(env=env, folder=trial_dir / "data", prefix=trial_name, save_freq=100)
 
@@ -168,7 +168,7 @@ if __name__ == '__main__':
     
 
     # ===== Launch training =====
-    model.learn(
+    model.learn_offline(
         # training
         total_timesteps=50_000,
         callback=callbacks,
@@ -183,7 +183,6 @@ if __name__ == '__main__':
         # logging
         tb_log_name=experiment_batch_name,
         log_interval=1,
-        save_buffer=True,
-        save_path_human="buffer/human",
-        save_path_replay="buffer/replay",
+        load_path_human="buffer/human/human_buffer_4600.pkl",
+        load_path_replay="buffer/replay/replay_buffer_4600.pkl",
     )

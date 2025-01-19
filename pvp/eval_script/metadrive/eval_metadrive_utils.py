@@ -4,18 +4,18 @@ import time
 
 import numpy as np
 import pandas as pd
-from pvp.utils.expert_human_in_the_loop_env import HumanInTheLoopEnv
+from pvp.experiments.metadrive.human_in_the_loop_env import HumanInTheLoopEnv
 from pvp.sb3.td3.policies import TD3Policy
 from pvp.utils.train_eval_config import baseline_eval_config
 from pvp.utils.print_dict_utils import pretty_print, RecorderEnv
-from pvp.pvp_td3 import pvpTD3
+from pvp.pvp_td3 import PVPTD3
 
 EVAL_ENV_START = baseline_eval_config["start_seed"]
 
 
 class PolicyFunction:
     def __init__(self, ckpt_path, ckpt_index, env):
-        self.algo = pvpTD3(policy=TD3Policy, env=env, policy_kwargs=dict(net_arch=[256, 256]))
+        self.algo = PVPTD3(policy=TD3Policy, env=env, policy_kwargs=dict(net_arch=[256, 256]))
         self.algo.set_parameters(load_path_or_dict=ckpt_path + "/rl_model_{}_steps.zip".format(ckpt_index))
 
     def __call__(self, o, deterministic=False):

@@ -13,6 +13,11 @@ from pvp.sb3.dqn.dqn import DQN, compute_entropy
 from pvp.sb3.haco.haco_buffer import HACOReplayBuffer, concat_samples, HACODictReplayBufferSamples
 import tqdm
 from pvp.sb3.dqn.policies import CnnPolicy
+from pvp.sb3.common.type_aliases import GymEnv, MaybeCallback
+from pvp.sb3.common.save_util import load_from_pkl, save_to_pkl
+import logging
+import os
+logger = logging.getLogger(__name__)
 
 def sample_and_concat(replay_data_agent, replay_data_human, agent_data_index):
     replay_data = concat_samples(HACODictReplayBufferSamples(
@@ -408,3 +413,179 @@ class PVPDQN(DQN):
         params_to_save = self.get_parameters()
 
         save_to_zip_file(path, data=data, params=params_to_save, pytorch_variables=pytorch_variables)
+    
+    def save_replay_buffer(
+        self, path_human: Union[str, pathlib.Path, io.BufferedIOBase], path_replay: Union[str, pathlib.Path,
+                                                                                          io.BufferedIOBase]
+    ) -> None:
+        save_to_pkl(path_human, self.human_data_buffer, self.verbose)
+        super(PVPDQN, self).save_replay_buffer(path_replay)
+
+    def load_replay_buffer(
+        self,
+        path_human: Union[str, pathlib.Path, io.BufferedIOBase],
+        path_replay: Union[str, pathlib.Path, io.BufferedIOBase],
+        truncate_last_traj: bool = True,
+    ) -> None:
+        """
+        Load a replay buffer from a pickle file.
+
+        :param path: Path to the pickled replay buffer.
+        :param truncate_last_traj: When using ``HerReplayBuffer`` with online sampling:
+            If set to ``True``, we assume that the last trajectory in the replay buffer was finished
+            (and truncate it).
+            If set to ``False``, we assume that we continue the same trajectory (same episode).
+        """
+        self.human_data_buffer = load_from_pkl(path_human, self.verbose)
+        assert isinstance(
+            self.human_data_buffer, ReplayBuffer
+        ), "The replay buffer must inherit from ReplayBuffer class"
+
+        # Backward compatibility with SB3 < 2.1.0 replay buffer
+        # Keep old behavior: do not handle timeout termination separately
+        if not hasattr(self.human_data_buffer, "handle_timeout_termination"):  # pragma: no cover
+            self.human_data_buffer.handle_timeout_termination = False
+            self.human_data_buffer.timeouts = np.zeros_like(self.replay_buffer.dones)
+        super(PVPDQN, self).load_replay_buffer(path_replay, truncate_last_traj)
+    
+    def learn(
+        self,
+        total_timesteps: int,
+        callback: MaybeCallback = None,
+        log_interval: int = 4,
+        eval_env: Optional[GymEnv] = None,
+        eval_freq: int = -1,
+        n_eval_episodes: int = 5,
+        tb_log_name: str = "run",
+        eval_log_path: Optional[str] = None,
+        reset_num_timesteps: bool = True,
+        buffer_save_timesteps: int = 200,
+        save_path_human: Union[str, pathlib.Path, io.BufferedIOBase] = "",
+        save_path_replay: Union[str, pathlib.Path, io.BufferedIOBase] = "",
+        save_buffer: bool = False,
+        load_buffer: bool = False,
+        load_path_human: Union[str, pathlib.Path, io.BufferedIOBase] = "",
+        load_path_replay: Union[str, pathlib.Path, io.BufferedIOBase] = "",
+    ) -> "OffPolicyAlgorithm":
+
+        total_timesteps, callback = self._setup_learn(
+            total_timesteps,
+            eval_env,
+            callback,
+            eval_freq,
+            n_eval_episodes,
+            eval_log_path,
+            reset_num_timesteps,
+            tb_log_name,
+        )
+
+        callback.on_training_start(locals(), globals())
+
+        while self.num_timesteps < total_timesteps:
+            rollout = self.collect_rollouts(
+                self.env,
+                train_freq=self.train_freq,
+                action_noise=self.action_noise,
+                callback=callback,
+                learning_starts=self.learning_starts,
+                replay_buffer=self.replay_buffer,
+                log_interval=log_interval,
+            )
+
+            if rollout.continue_training is False:
+                break
+
+            if self.num_timesteps > 0 and self.num_timesteps > self.learning_starts:
+                # If no `gradient_steps` is specified,
+                # do as many gradients steps as steps performed during the rollout
+                gradient_steps = self.gradient_steps if self.gradient_steps >= 0 else rollout.episode_timesteps
+                # Special case when the user passes `gradient_steps=0`
+                if gradient_steps > 0:
+                    self.train(batch_size=self.batch_size, gradient_steps=gradient_steps)
+            if save_buffer and self.num_timesteps > 0 and self.num_timesteps % buffer_save_timesteps == 0:
+                buffer_location_human = os.path.join(
+                    save_path_human, "human_buffer_" + str(self.num_timesteps) + ".pkl"
+                )
+                buffer_location_replay = os.path.join(
+                    save_path_replay, "replay_buffer_" + str(self.num_timesteps) + ".pkl"
+                )
+                logger.info("Saving..." + str(buffer_location_human))
+                logger.info("Saving..." + str(buffer_location_replay))
+                self.save_replay_buffer(buffer_location_human, buffer_location_replay)
+
+        callback.on_training_end()
+
+        return self
+    
+    def learn_offline(
+        self,
+        total_timesteps: int,
+        callback: MaybeCallback = None,
+        log_interval: int = 4,
+        eval_env: Optional[GymEnv] = None,
+        eval_freq: int = -1,
+        n_eval_episodes: int = 5,
+        tb_log_name: str = "run",
+        eval_log_path: Optional[str] = None,
+        reset_num_timesteps: bool = True,
+        buffer_save_timesteps: int = 200,
+        save_path_human: Union[str, pathlib.Path, io.BufferedIOBase] = "",
+        save_path_replay: Union[str, pathlib.Path, io.BufferedIOBase] = "",
+        save_buffer: bool = False,
+        load_buffer: bool = True,
+        load_path_human: Union[str, pathlib.Path, io.BufferedIOBase] = "",
+        load_path_replay: Union[str, pathlib.Path, io.BufferedIOBase] = "",
+    ) -> "OffPolicyAlgorithm":
+        if load_buffer:
+            self.load_replay_buffer(load_path_human, load_path_replay)
+        total_timesteps, callback = self._setup_learn(
+            total_timesteps,
+            eval_env,
+            callback,
+            eval_freq,
+            n_eval_episodes,
+            eval_log_path,
+            reset_num_timesteps,
+            tb_log_name,
+        )
+
+        callback.on_training_start(locals(), globals())
+
+        while self.num_timesteps < total_timesteps:
+            self.num_timesteps += 1
+            self.policy.set_training_mode(False)
+
+            num_collected_steps, num_collected_episodes = 0, 0
+
+            callback.on_rollout_start()
+            continue_training = True
+
+            if True:
+                self.num_timesteps += 1
+                self.since_last_reset += 1
+                num_collected_steps += 1
+
+                # Give access to local variables
+                callback.update_locals(locals())
+                # Only stop training if return value is False, not when it is None.
+                callback.on_step()
+
+                self._update_current_progress_remaining(self.num_timesteps, self._total_timesteps)
+
+                # For DQN, check if the target network should be updated
+                # and update the exploration schedule
+                # For SAC/TD3, the update is dones as the same time as the gradient update
+                # see https://github.com/hill-a/stable-baselines/issues/900
+                self._on_step()
+
+            callback.on_rollout_end()
+            if True:
+                gradient_steps = self.gradient_steps
+                assert gradient_steps > 0
+                # Special case when the user passes `gradient_steps=0`
+                if gradient_steps > 0:
+                    self.train(batch_size=self.batch_size, gradient_steps=gradient_steps)
+            
+        callback.on_training_end()
+
+        return self

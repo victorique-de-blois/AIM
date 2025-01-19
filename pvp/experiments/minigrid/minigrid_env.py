@@ -282,7 +282,20 @@ class MinigridWrapper(gym.Wrapper):
         #if not self.enable_human:
         #    print(self.total_steps)
         if self.enable_human:
-            self.update_additional_text("Request Human Help!!")
+            agent_action = a
+            if agent_action < 7:
+                agent_action = {
+                    0: "Turning Left",
+                    1: "Turning Right",
+                    2: "Forward",
+                    3: "Pickup",
+                    4: "Drop",
+                    5: "Toggle/Activate Object",
+                    6: "Done Complete Task",
+                }[agent_action]
+            else:
+                agent_action = "Invalid action: {}".format(agent_action)
+            self.update_additional_text("Request Human Help!! \n Agent: {}".format(agent_action))
         else:
             self.update_additional_text("I can handle it.")
         if self.use_render:
