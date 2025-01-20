@@ -9,7 +9,7 @@ from pathlib import Path
 import torch
 
 from pvp.experiments.minigrid.minigrid_env import MiniGridMultiRoomN2S4, MiniGridMultiRoomN4S5, \
-    MiniGridEmpty6x6, wrap_minigrid_env, MiniGridEmpty16x16
+    MiniGridEmpty6x6, MiniGridMultiRoomN4S16, wrap_minigrid_env, MiniGridEmpty16x16
 from pvp.experiments.minigrid.minigrid_model import MinigridCNN
 from pvp.pvp_dqn import PVPDQN
 from pvp.pvp_dqn_cpl import PVPDQNCPL
@@ -26,17 +26,17 @@ if __name__ == '__main__':
         "--exp_name", default="pvp_minigrid_fakehuman", type=str, help="The name for this batch of experiments."
     )
     parser.add_argument("--seed", default=0, type=int, help="The random seed.")
-    parser.add_argument("--wandb", action="store_true", help="Set to True to upload stats to wandb.")
     parser.add_argument("--use_fake_human_with_failure", action="store_true")
-    parser.add_argument("--wandb_project", type=str, default="", help="The project name for wandb.")
-    parser.add_argument("--wandb_team", type=str, default="", help="The team name for wandb.")
-
+    parser.add_argument("--wandb", type=bool, default=True, help="Set to True to upload stats to wandb.")
+    parser.add_argument("--wandb_project", type=str, default="grid_fakehuman", help="The project name for wandb.")
+    parser.add_argument("--wandb_team", type=str, default="victorique", help="The team name for wandb.")
+    
     parser.add_argument(
         "--env",
         default="emptyroom",
         type=str,
         help="Nick name of the environment.",
-        choices=["emptyroom", "emptyroom16", "tworoom", "fourroom"]
+        choices=["emptyroom", "emptyroom16", "tworoom", "fourroom", "fourroomlarge"]
     )
     args = parser.parse_args()
 
@@ -98,6 +98,9 @@ if __name__ == '__main__':
             verbose=2,
             seed=seed,
             device="auto",
+            policy_delay = 1, ## no delay
+            init_bc_steps = 100,
+            thr_classifier = 0.9,
         ),
 
         # Experiment log
@@ -117,12 +120,14 @@ if __name__ == '__main__':
         env_class = MiniGridMultiRoomN2S4
     elif env_name == "fourroom":
         env_class = MiniGridMultiRoomN4S5
+    elif env_name == "fourroomlarge":
+        env_class = MiniGridMultiRoomN4S16
     else:
         raise ValueError("Unknown environment: {}".format(env_name))
 
     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     # env = wrap_minigrid_env(env_class, enable_takeover=True)
-    env = wrap_minigrid_env(
+    env, unwrapped_env = wrap_minigrid_env(
         env_class, enable_takeover=False, use_fake_human=True, use_fake_human_with_failure=use_fake_human_with_failure
     )
     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -136,7 +141,7 @@ if __name__ == '__main__':
 
     # ===== Also build the eval env =====
     def _make_eval_env():
-        env = wrap_minigrid_env(env_class, enable_takeover=False)
+        env, _ = wrap_minigrid_env(env_class, enable_takeover=False)
         env = Monitor(env=env, filename=str(trial_dir))
         return env
 
@@ -145,7 +150,7 @@ if __name__ == '__main__':
     assert config["algo"]["env"] is not None
 
     # ===== Setup the callbacks =====
-    save_freq = 500  # Number of steps per model checkpoint
+    save_freq = 100  # Number of steps per model checkpoint
     callbacks = [
         CheckpointCallback(name_prefix="rl_model", verbose=1, save_freq=save_freq, save_path=str(trial_dir / "models"))
     ]
@@ -163,6 +168,21 @@ if __name__ == '__main__':
 
     # ===== Setup the training algorithm =====
     model = PVPDQN(**config["algo"])
+    import torch as th
+    from pvp.sb3.common.utils import get_schedule_fn
+    classifier = CnnPolicy(model.observation_space,
+                            model.action_space,
+                            get_schedule_fn(1e-4),
+                            features_extractor_class=MinigridCNN, 
+                            activation_fn=th.nn.Tanh,
+                            net_arch=[
+                                64,
+                            ])
+    classifier = classifier.to("cuda")
+    classifier.set_training_mode(True)
+    model.classifier = classifier
+    unwrapped_env.classifier = classifier
+    unwrapped_env.model = model
 
     # ===== Launch training =====
     model.learn(
@@ -173,8 +193,8 @@ if __name__ == '__main__':
 
         # eval
         eval_env=eval_env,
-        eval_freq=10,  # Evaluate every 20 steps in training.
-        n_eval_episodes=20,
+        eval_freq=100,  # Evaluate every 20 steps in training.
+        n_eval_episodes=50,
         eval_log_path=str(trial_dir),
 
         # logging

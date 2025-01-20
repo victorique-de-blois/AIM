@@ -420,6 +420,89 @@ class MinigridWrapper(gym.Wrapper):
         """Forward compatibility to gymnasium"""
         self.env.reset(seed=seed)
 
+import pathlib
+FOLDER_PATH = pathlib.Path(__file__).parent
+def wrap_minigrid_env(env_class, enable_takeover, use_fake_human=False, use_fake_human_with_failure=False):
+    if enable_takeover:
+        env = env_class(render_mode="human", screen_size=SCREEN_SIZE)
+    else:
+        env = env_class()
+
+    if use_fake_human:
+        if use_fake_human_with_failure:
+            env = MinigridWrapperWithFakeHumanAndHumanFailureDemo(env)
+        else:
+            env = MinigridWrapperWithFakeHuman(env)
+    else:
+        env = MinigridWrapper(env)
+    unwrapped_env = env
+    env = ImgObsWrapper(env)
+    env = FrameStack(env, num_stack=4)
+    env = ConcatenateChannel(env)
+    env = OldGymWrapper(env)
+    return env, unwrapped_env
+def get_expert():
+    import torch
+    from pvp.utils.shared_control_monitor import SharedControlMonitor
+    from pvp.pvp_dqn import PVPDQN
+    from pvp.sb3.common.save_util import load_from_zip_file
+    config = dict(
+
+        # Environment config
+        env_config=dict(),
+
+        # Algorithm config
+        algo=dict(
+            policy=CnnPolicy,
+            policy_kwargs=dict(features_extractor_class=MinigridCNN, activation_fn=torch.nn.Tanh, net_arch=[
+                64,
+            ]),
+
+            # === PVP setting ===
+            replay_buffer_kwargs=dict(discard_reward=True),  # PZH: We run in reward-free manner!
+            exploration_fraction=0.0,  # 1% * 100k = 1k
+            exploration_initial_eps=0.0,
+            exploration_final_eps=0.0,
+            env=None,
+            optimize_memory_usage=True,
+
+            # Hyper-parameters are collected from https://arxiv.org/pdf/1910.02078.pdf
+            # MiniGrid specified parameters
+            buffer_size=10_000,
+            learning_rate=1e-4,
+
+            # === New hypers ===
+            learning_starts=10,  # PZH: Original DQN has 100K warmup steps
+            batch_size=32,
+            train_freq=(1, 'step'),
+            tau=0.005,
+            target_update_interval=1,
+            gradient_steps=32,
+            create_eval_env=False,
+            verbose=2,
+            seed=0,
+            device="auto",
+            policy_delay = 1, ## no delay
+            init_bc_steps = 100,
+            thr_classifier = 0.9,
+        ),
+        seed=0,
+    )
+    env_class = MiniGridMultiRoomN4S16
+    env, unwrapped_env = wrap_minigrid_env(env_class, enable_takeover=True)
+    env = Monitor(env=env)
+    train_env = SharedControlMonitor(env=env, save_freq=100)
+    config["algo"]["env"] = train_env
+    model = PVPDQN(**config["algo"])
+    ckpt = FOLDER_PATH / "/home/caihy/pvp/pvp/experiments/minigrid/best_model_minigrid_4roomlarge.zip"
+    print(f"Loading checkpoint from {ckpt}!")
+    data, params, pytorch_variables = load_from_zip_file(ckpt, device=model.device, print_system_info=False)
+    model.set_parameters(params, exact_match=True, device=model.device)
+    print(f"Model is loaded from {ckpt}!")
+    train_env.close()
+    return model.policy
+
+_expert = get_expert()
 
 class MinigridWrapperWithFakeHuman(gym.Wrapper):
     def __init__(self, env):
@@ -430,36 +513,42 @@ class MinigridWrapperWithFakeHuman(gym.Wrapper):
         # self.use_render = self.enable_human = env.render_mode == "human"
         # self.keyboard_action = None
         # self.valid_key_press = False
+        global _expert
+        self.expert = _expert
 
     def get_expert_action(self):
 
         # Make fake action:
-        x, y = self.env.agent_pos
-        dir = self.env.agent_dir
-        RIGHT_MOST = self.env.grid.width - 2
+        # x, y = self.env.agent_pos
+        # dir = self.env.agent_dir
+        # RIGHT_MOST = self.env.grid.width - 2
 
-        if x != RIGHT_MOST:
-            # Try to move to the right
-            if dir in [DirMap.LEFT, DirMap.UP]:
-                # Turn right
-                expert_action = ActionMap.RIGHT
-            elif dir == DirMap.RIGHT:
-                # Move forward
-                expert_action = ActionMap.FORWARD
-            else:
-                # Turn left
-                expert_action = ActionMap.LEFT
-        else:
-            # Try to move down
-            if dir in [DirMap.UP, DirMap.RIGHT]:
-                # Turn right
-                expert_action = ActionMap.RIGHT
-            elif dir == DirMap.DOWN:
-                # Move forward
-                expert_action = ActionMap.FORWARD
-            else:
-                # Turn left
-                expert_action = ActionMap.LEFT
+        # if x != RIGHT_MOST:
+        #     # Try to move to the right
+        #     if dir in [DirMap.LEFT, DirMap.UP]:
+        #         # Turn right
+        #         expert_action = ActionMap.RIGHT
+        #     elif dir == DirMap.RIGHT:
+        #         # Move forward
+        #         expert_action = ActionMap.FORWARD
+        #     else:
+        #         # Turn left
+        #         expert_action = ActionMap.LEFT
+        # else:
+        #     # Try to move down
+        #     if dir in [DirMap.UP, DirMap.RIGHT]:
+        #         # Turn right
+        #         expert_action = ActionMap.RIGHT
+        #     elif dir == DirMap.DOWN:
+        #         # Move forward
+        #         expert_action = ActionMap.FORWARD
+        #     else:
+        #         # Turn left
+        #         expert_action = ActionMap.LEFT
+        if not hasattr(self, "model"):
+            return 0
+        th_obs = th.from_numpy(self.model._last_obs).to(self.classifier.device)
+        expert_action = (int)(self.expert(th_obs))
         return expert_action
 
     def step(self, a):
@@ -617,25 +706,6 @@ class MinigridWrapperWithFakeHumanAndHumanFailureDemo(gym.Wrapper):
         return out
 
 
-def wrap_minigrid_env(env_class, enable_takeover, use_fake_human=False, use_fake_human_with_failure=False):
-    if enable_takeover:
-        env = env_class(render_mode="human", screen_size=SCREEN_SIZE)
-    else:
-        env = env_class()
-
-    if use_fake_human:
-        if use_fake_human_with_failure:
-            env = MinigridWrapperWithFakeHumanAndHumanFailureDemo(env)
-        else:
-            env = MinigridWrapperWithFakeHuman(env)
-    else:
-        env = MinigridWrapper(env)
-    unwrapped_env = env
-    env = ImgObsWrapper(env)
-    env = FrameStack(env, num_stack=4)
-    env = ConcatenateChannel(env)
-    env = OldGymWrapper(env)
-    return env, unwrapped_env
 
 
 if __name__ == '__main__':
