@@ -249,6 +249,7 @@ class MinigridWrapper(gym.Wrapper):
         super(MinigridWrapper, self).__init__(env=env)
         self.total_takeover = 0
         self.total_steps = 0
+        self.total_expert_toggle = 0
         self.takeover = False
         self.use_render = self.enable_human = env.render_mode == "human"
         self.keyboard_action = None
@@ -338,6 +339,9 @@ class MinigridWrapper(gym.Wrapper):
         i["takeover_start"] = True if takeover_start else False
         i["takeover"] = True if should_takeover else False
         i["is_success"] = i["success"] = True if r > 0.0 else False
+        i["expert_toggle"] = 1 if (self.keyboard_action == 5) else 0
+        self.total_expert_toggle += i["expert_toggle"]
+        i["total_expert_toggle"] = self.total_expert_toggle
         self.takeover = should_takeover
         self.valid_key_press = False  # refresh
         self.update_caption(None)  # Set caption to "waiting"
@@ -517,6 +521,7 @@ class MinigridWrapperWithFakeHuman(gym.Wrapper):
         # self.valid_key_press = False
         global _expert
         self.expert = _expert
+        self.total_expert_toggle = 0
 
     def get_expert_action(self):
 
@@ -575,6 +580,9 @@ class MinigridWrapperWithFakeHuman(gym.Wrapper):
         i["takeover_start"] = True if takeover_start else False
         i["takeover"] = True if should_takeover else False
         i["is_success"] = i["success"] = True if r > 0.0 else False
+        i["expert_toggle"] = 1 if (expert_action == 5) else 0
+        self.total_expert_toggle += i["expert_toggle"]
+        i["total_expert_toggle"] = self.total_expert_toggle
         self.takeover = should_takeover
         # self.valid_key_press = False  # refresh
         # self.update_caption(None)  # Set caption to "waiting"
@@ -608,6 +616,7 @@ class MinigridWrapperWithFakeHumanRobotGate(gym.Wrapper):
         global _expert
         self.expert = _expert
         self.enable_human = False
+        self.total_expert_toggle = 0
         
     def compute_uncertainty(self, action):
         self.classifier.set_training_mode(False)
@@ -667,6 +676,9 @@ class MinigridWrapperWithFakeHumanRobotGate(gym.Wrapper):
         i["takeover_start"] = True if takeover_start else False
         i["takeover"] = True if should_takeover else False
         i["is_success"] = i["success"] = True if r > 0.0 else False
+        i["expert_toggle"] = 1 if (expert_action == 5) else 0
+        self.total_expert_toggle += i["expert_toggle"]
+        i["total_expert_toggle"] = self.total_expert_toggle
         self.takeover = should_takeover
         # self.valid_key_press = False  # refresh
         # self.update_caption(None)  # Set caption to "waiting"

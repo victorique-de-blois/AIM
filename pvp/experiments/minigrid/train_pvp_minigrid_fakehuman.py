@@ -100,7 +100,8 @@ if __name__ == '__main__':
             device="auto",
             policy_delay = 1, ## no delay
             init_bc_steps = 100,
-            thr_classifier = 0.9,
+            thr_classifier = 0.95,
+            gamma_classifier = -1,
         ),
 
         # Experiment log

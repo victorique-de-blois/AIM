@@ -74,6 +74,11 @@ class PVPDQN(DQN):
             self.thr_classifier = kwargs.pop("thr_classifier")
         else:
             self.thr_classifier = 0.9
+            
+        if "gamma_classifier" in kwargs:
+            self.gamma_classifier = kwargs.pop("gamma_classifier")
+        else:
+            self.gamma_classifier = -1
         
         self.delay = 0
 
@@ -246,19 +251,32 @@ class PVPDQN(DQN):
         
         for _ in tqdm.trange(gradient_steps * n_upd, desc="Gradient Steps"):
             human_num_samples = int(min(batch_size, self.human_data_buffer.pos))
-            replay_data = self.human_data_buffer.sample(human_num_samples, env=self._vec_normalize_env, discard_rgb=discard_rgb, return_features=return_features)
-                
-            # with th.no_grad():
-            #     # Compute the next Q-values using the target network
-            #     # next_q_values, _ = self.q_net_target(replay_data.next_observations)
-            #     next_q_values= self.q_net_target(replay_data.next_observations)
-            #     # Follow greedy policy: use the one with the highest value
-            #     next_q_values, _ = next_q_values.max(dim=1)
-            #     # Avoid potential broadcast issue
-            #     next_q_values = next_q_values.reshape(-1, 1)
-            #     # 1-step TD target
-            #     assert replay_data.rewards.mean().item() == 0.0
-            #     target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
+            if self.replay_buffer.pos > 0 and self.human_data_buffer.pos > 0:
+                    agent_num_samples = int(min(batch_size // 2, self.replay_buffer.pos))
+                    human_num_samples = int(min(batch_size // 2, self.human_data_buffer.pos))
+                    replay_data_agent = self.replay_buffer.sample(agent_num_samples, env=self._vec_normalize_env, discard_rgb=discard_rgb, return_features=return_features)
+                    replay_data_human = self.human_data_buffer.sample(human_num_samples, env=self._vec_normalize_env, discard_rgb=discard_rgb, return_features=return_features)
+                    replay_data = concat_samples(replay_data_agent, replay_data_human)
+            elif self.human_data_buffer.pos > 0:
+                    human_num_samples = int(min(batch_size, self.human_data_buffer.pos))
+                    replay_data = self.human_data_buffer.sample(human_num_samples, env=self._vec_normalize_env, discard_rgb=discard_rgb, return_features=return_features)
+            elif self.replay_buffer.pos > 0:
+                    agent_num_samples = int(min(batch_size, self.replay_buffer.pos))
+                    replay_data = self.replay_buffer.sample(agent_num_samples, env=self._vec_normalize_env, discard_rgb=discard_rgb, return_features=return_features)
+            else:
+                    raise ValueError("No data in replay buffer")
+            
+            with th.no_grad():
+                # Compute the next Q-values using the target network
+                # next_q_values, _ = self.q_net_target(replay_data.next_observations)
+                next_q_values= self.classifier.q_net_target(replay_data.next_observations)
+                # Follow greedy policy: use the one with the highest value
+                next_q_values, _ = next_q_values.max(dim=1)
+                # Avoid potential broadcast issue
+                next_q_values = next_q_values.reshape(-1, 1)
+                # 1-step TD target
+                assert replay_data.rewards.mean().item() == 0.0
+                target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma_classifier * next_q_values
 
             # Get current Q-values estimates
             # current_q_values, _ = self.q_net(replay_data.observations)
@@ -269,14 +287,18 @@ class PVPDQN(DQN):
             # Retrieve the q-values for the actions from the replay buffer
             current_behavior_q_values = th.gather(current_q_values, dim=1, index=replay_data.actions_behavior.long())
 
-            current_novice_q_value_method1 = th.gather(current_q_values, dim=1, index=replay_data.actions_novice.long())
+            with th.no_grad():
+                new_actions = th.unsqueeze(self.q_net._predict(replay_data.observations).long(), -1)
+
+                #new_actions = th.randint(low=0, high=7, size=new_actions.shape).to(self.device)
+            current_novice_q_value_method1 = th.gather(current_q_values, dim=1, index=new_actions)
 
             current_novice_q_value = current_novice_q_value_method1
 
             mask = replay_data.interventions
             # stat_recorder["no_intervention_rate"].append(mask.float().mean().item())
 
-            no_overlap = replay_data.actions_behavior != replay_data.actions_novice
+            no_overlap = replay_data.actions_behavior != new_actions
             # stat_recorder["no_overlap_rate"].append(no_overlap.float().mean().item())
             # stat_recorder["masked_no_overlap_rate"].append((mask * no_overlap).float().mean().item())
 
@@ -291,12 +313,21 @@ class PVPDQN(DQN):
                 )
 
             # Compute Huber loss (less sensitive to outliers)
-            #loss_td = F.smooth_l1_loss(current_behavior_q_values, target_q_values)
+            loss_td = F.smooth_l1_loss(current_behavior_q_values, target_q_values)
 
             #loss = loss_td.mean() + pvp_loss.mean()
-            loss = pvp_loss.mean()
+            if self.gamma_classifier >= 0:
+                loss = loss_td.mean() + pvp_loss.mean()
+            else:
+                loss = pvp_loss.mean()
+            
+            # BC loss
+            lp = torch.distributions.Categorical(logits=current_q_values).log_prob(replay_data.actions_behavior.flatten())
+            masked_lp = (mask.flatten() * lp.flatten()).sum() / (mask.sum() + 1e-8)
+            bc_loss = -lp.mean()
             
             stat_recorder["c_loss"].append(loss.item())
+            stat_recorder["c_loss_bc"].append(bc_loss.item())
 
             # Optimize the policy
             self.classifier.optimizer.zero_grad()
