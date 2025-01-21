@@ -128,7 +128,7 @@ if __name__ == '__main__':
     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     # env = wrap_minigrid_env(env_class, enable_takeover=True)
     env, unwrapped_env = wrap_minigrid_env(
-        env_class, enable_takeover=False, use_fake_human=True, use_fake_human_with_failure=use_fake_human_with_failure
+        env_class, enable_takeover=False, use_fake_human=True, use_fake_human_robotgate=True, use_fake_human_with_failure=use_fake_human_with_failure
     )
     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 

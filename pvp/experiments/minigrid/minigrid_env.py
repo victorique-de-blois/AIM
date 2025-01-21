@@ -422,7 +422,7 @@ class MinigridWrapper(gym.Wrapper):
 
 import pathlib
 FOLDER_PATH = pathlib.Path(__file__).parent
-def wrap_minigrid_env(env_class, enable_takeover, use_fake_human=False, use_fake_human_with_failure=False):
+def wrap_minigrid_env(env_class, enable_takeover, use_fake_human=False, use_fake_human_robotgate=False, use_fake_human_with_failure=False):
     if enable_takeover:
         env = env_class(render_mode="human", screen_size=SCREEN_SIZE)
     else:
@@ -431,6 +431,8 @@ def wrap_minigrid_env(env_class, enable_takeover, use_fake_human=False, use_fake
     if use_fake_human:
         if use_fake_human_with_failure:
             env = MinigridWrapperWithFakeHumanAndHumanFailureDemo(env)
+        elif use_fake_human_robotgate:
+            env = MinigridWrapperWithFakeHumanRobotGate(env)
         else:
             env = MinigridWrapperWithFakeHuman(env)
     else:
@@ -561,6 +563,98 @@ class MinigridWrapperWithFakeHuman(gym.Wrapper):
         else:
             behavior_action = expert_action
             should_takeover = True
+
+        cost = 0
+
+        o, r, tm, tc, i = super().step(behavior_action)
+        takeover_start = should_takeover and not self.takeover
+        i["cost"] = cost
+        i["total_takeover"] = self.total_takeover
+        i["takeover_cost"] = cost
+        i["raw_action"] = int(behavior_action)
+        i["takeover_start"] = True if takeover_start else False
+        i["takeover"] = True if should_takeover else False
+        i["is_success"] = i["success"] = True if r > 0.0 else False
+        self.takeover = should_takeover
+        # self.valid_key_press = False  # refresh
+        # self.update_caption(None)  # Set caption to "waiting"
+        self.total_takeover += 1 if self.takeover else 0
+        return o, r, tm, tc, i
+
+    def reset(self, *args, **kwargs):
+        self.takeover = False
+        # self.keyboard_action = None
+        ret = self.env.reset(*args, **kwargs)
+        # if self.use_render:
+        #     pygame.display.set_caption("Reset!")
+        #     self.env.render()
+        return ret
+
+    def close(self):
+        self.env.close()
+        pygame.quit()
+
+    def seed(self, seed):
+        """Forward compatibility to gymnasium"""
+        self.env.reset(seed=seed)
+
+
+class MinigridWrapperWithFakeHumanRobotGate(gym.Wrapper):
+    def __init__(self, env):
+        super().__init__(env=env)
+        self.total_takeover = 0
+        self.total_steps = 0
+        self.takeover = False
+        global _expert
+        self.expert = _expert
+        self.enable_human = False
+        
+    def compute_uncertainty(self, action):
+        self.classifier.set_training_mode(False)
+        th_obs = th.from_numpy(self.model._last_obs).to(self.classifier.device)
+        unc = self.classifier.q_net(th_obs).squeeze()
+        return unc[(int)(action)].item()
+
+    def get_expert_action(self):
+        if not hasattr(self, "model"):
+            return 0
+        th_obs = th.from_numpy(self.model._last_obs).to(self.classifier.device)
+        expert_action = (int)(self.expert(th_obs))
+        return expert_action
+
+    def step(self, a):
+        self.total_steps += 1
+
+        if hasattr(self, "model"):
+            current_unc = self.compute_uncertainty(a)
+        
+        self.last_enable_human = self.enable_human
+        ready_robot_gate = False
+        if not hasattr(self, "model"):
+            self.enable_human = False
+        elif self.total_steps <= self.model.init_bc_steps:
+            self.enable_human = True
+        else:
+            ready_robot_gate = True
+            if not self.last_enable_human and current_unc > self.model.switch2human_thresh:
+                self.enable_human = True
+        
+        if self.enable_human:
+            expert_action = self.get_expert_action()
+        else:
+            expert_action = None
+
+        should_takeover = self.enable_human
+        
+        if self.enable_human and expert_action == a and ready_robot_gate:
+            self.enable_human = False
+        
+        if a == expert_action or expert_action == None:
+            behavior_action = a
+            #should_takeover = False
+        else:
+            behavior_action = expert_action
+            #should_takeover = True
 
         cost = 0
 
