@@ -246,7 +246,7 @@ class PVPDQN(DQN):
             stat_recorder["q_value_behavior"].append(current_behavior_q_values.mean().item())
             stat_recorder["q_value_novice"].append(current_novice_q_value.mean().item())
         
-        if self.human_data_buffer.pos == 0:
+        if self.human_data_buffer.pos == 0: # or self.num_timesteps < self.init_bc_steps:
             n_upd = 0
         
         for _ in tqdm.trange(gradient_steps * n_upd, desc="Gradient Steps"):

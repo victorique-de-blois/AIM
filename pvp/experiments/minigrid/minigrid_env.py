@@ -648,10 +648,14 @@ class MinigridWrapperWithFakeHumanRobotGate(gym.Wrapper):
             if not self.last_enable_human and current_unc > self.model.switch2human_thresh:
                 self.enable_human = True
         
+        tmp_expert_action = self.get_expert_action()
         if self.enable_human:
-            expert_action = self.get_expert_action()
+            expert_action = tmp_expert_action
         else:
             expert_action = None
+        # if tmp_expert_action == 5:
+        #     expert_action = tmp_expert_action
+        #     self.enable_human = True
 
         should_takeover = self.enable_human
         

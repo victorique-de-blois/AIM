@@ -88,7 +88,7 @@ if __name__ == '__main__':
 
             # === New hypers ===
             learning_starts=10,  # PZH: Original DQN has 100K warmup steps
-            batch_size=32,
+            batch_size=200,
             train_freq=(1, 'step'),
             tau=0.005,
             target_update_interval=1,
@@ -100,7 +100,7 @@ if __name__ == '__main__':
             device="auto",
             policy_delay = 1, ## no delay
             init_bc_steps = 100,
-            thr_classifier = 0.95,
+            thr_classifier = 0.95,  #0.9 -> 0.95
             gamma_classifier = -1,
         ),
 
@@ -188,7 +188,7 @@ if __name__ == '__main__':
     # ===== Launch training =====
     model.learn(
         # training
-        total_timesteps=50_000,
+        total_timesteps=10_000,
         callback=callbacks,
         reset_num_timesteps=True,
 
