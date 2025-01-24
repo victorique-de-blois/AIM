@@ -288,11 +288,6 @@ class PVPTD3ENS(PVPTD3):
                     if action_noise is not None:
                         kwargs = dict(indices=[idx]) if env.num_envs > 1 else {}
                         action_noise.reset(**kwargs)
-                    try:
-                        import wandb
-                        wandb.log(self.logger.name_to_value, step=self.num_timesteps)
-                    except:
-                        pass
                     # Log training infos
                     if log_interval is not None and self._episode_num % log_interval == 0:
                         self._dump_logs()
