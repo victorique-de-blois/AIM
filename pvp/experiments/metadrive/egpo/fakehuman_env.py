@@ -178,6 +178,9 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                 self.takeover = False
             # print(f"Action probability: {action_prob:.3f}, agent action: {actions}, expert action: {expert_action}, takeover: {self.takeover}")
 
+        if self.total_steps <= 1000:
+            self.takeover = True
+            actions = expert_action
         o, r, d, i = super(HumanInTheLoopEnv, self).step(actions)
         self.takeover_recorder.append(self.takeover)
         self.total_steps += 1

@@ -648,6 +648,11 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                         action_noise.reset(**kwargs)
 
                     # Log training infos
+                    try:
+                        import wandb
+                        wandb.log(self.logger.name_to_value, step=self.num_timesteps)
+                    except:
+                        pass
                     if log_interval is not None and self._episode_num % log_interval == 0:
                         self._dump_logs()
 

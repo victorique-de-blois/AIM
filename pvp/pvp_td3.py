@@ -205,10 +205,16 @@ class PVPTD3(TD3):
 
                 polyak_update(self.critic.parameters(), self.critic_target.parameters(), self.tau)
                 polyak_update(self.actor.parameters(), self.actor_target.parameters(), self.tau)
-
+        stat_recorder["human_buffer_size"] = self.human_data_buffer.pos
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         for key, values in stat_recorder.items():
             self.logger.record("train/{}".format(key), np.mean(values))
+        
+        try:
+            import wandb
+            wandb.log(self.logger.name_to_value, step=self.num_timesteps)
+        except:
+            pass
 
     def _store_transition(
         self,

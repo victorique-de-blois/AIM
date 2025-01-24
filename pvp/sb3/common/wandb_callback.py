@@ -116,7 +116,7 @@ class WandbCallback(BaseCallback):
             config=config or {},
             resume=False,
             reinit=True,
-            sync_tensorboard=True,  # Open this and setup tb in sb3 so that we can get log!
+            sync_tensorboard=False,  # Open this and setup tb in sb3 so that we can get log!
             save_code=True,
             settings=wandb.Settings(code_dir=str(PACKAGE_ROOT))
         )

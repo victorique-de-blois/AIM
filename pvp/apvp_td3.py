@@ -256,6 +256,7 @@ class APVPTD3(TD3):
                 stat_recorder["loss_class"].append(loss_class.item())
 
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
+        stat_recorder["human_buffer_size"] = self.human_data_buffer.pos
         for key, values in stat_recorder.items():
             self.logger.record("train/{}".format(key), np.mean(values))
         try:

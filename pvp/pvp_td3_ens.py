@@ -288,7 +288,11 @@ class PVPTD3ENS(PVPTD3):
                     if action_noise is not None:
                         kwargs = dict(indices=[idx]) if env.num_envs > 1 else {}
                         action_noise.reset(**kwargs)
-
+                    try:
+                        import wandb
+                        wandb.log(self.logger.name_to_value, step=self.num_timesteps)
+                    except:
+                        pass
                     # Log training infos
                     if log_interval is not None and self._episode_num % log_interval == 0:
                         self._dump_logs()
@@ -309,7 +313,8 @@ class PVPTD3ENS(PVPTD3):
             if hasattr(self, key):
                 stat_recorder[key].append(getattr(self, key))
         
-        if self.human_data_buffer.pos >= 999 and not hasattr(self, "trained"):
+        self.init_bc_steps = 200
+        if self.human_data_buffer.pos >= self.init_bc_steps - 1 and not hasattr(self, "trained"):
             self.trained = True
             #thompson sample
             len_train = (int)(0.9 * lm)
@@ -318,7 +323,7 @@ class PVPTD3ENS(PVPTD3):
                 tmp_buffers_id.append(np.random.randint(0, len_train, size=len_train))
 
             ##first training of student policies: bc
-            for _ in range(1000):
+            for _ in range(self.init_bc_steps):
                 stat_recorders = []
                 self.num_gd += 1
                 for t_, remote in enumerate(self.remotes):
@@ -328,7 +333,7 @@ class PVPTD3ENS(PVPTD3):
                 for remote in self.remotes:
                     stat_recorders.append(remote.recv())
             ##start train classifier
-            num_gd_steps = 1000 #self.policy_delay
+            num_gd_steps = self.init_bc_steps #self.policy_delay
             for _ in range(num_gd_steps):
                     with th.no_grad():
                         replay_data_human = self.human_data_buffer.sample(int(batch_size), env=self._vec_normalize_env)
@@ -417,6 +422,7 @@ class PVPTD3ENS(PVPTD3):
             for key, values in stat_recorderins.items():
                 avg_stat[key] += np.mean(values) / self.k
         
+        avg_stat["human_buffer_size"] = self.human_data_buffer.pos
         for key, values in avg_stat.items():
             self.logger.record("train/{}".format(key), values)
         

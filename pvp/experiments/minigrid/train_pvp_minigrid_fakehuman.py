@@ -25,7 +25,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "--exp_name", default="pvp_minigrid_fakehuman", type=str, help="The name for this batch of experiments."
     )
-    parser.add_argument("--seed", default=0, type=int, help="The random seed.")
+    parser.add_argument("--seed", default=1023, type=int, help="The random seed.")
     parser.add_argument("--use_fake_human_with_failure", action="store_true")
     parser.add_argument("--wandb", type=bool, default=True, help="Set to True to upload stats to wandb.")
     parser.add_argument("--wandb_project", type=str, default="grid_fakehuman", help="The project name for wandb.")

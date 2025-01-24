@@ -308,6 +308,7 @@ class EvalCallback(EventCallback):
         self.deterministic = deterministic
         self.render = render
         self.warn = warn
+        self.next_upd = 200
 
         # Convert to VecEnv for consistency
         if not isinstance(eval_env, VecEnv):
@@ -370,7 +371,8 @@ class EvalCallback(EventCallback):
 
     def _on_step(self) -> bool:
 
-        if self.eval_freq > 0 and self.n_calls % self.eval_freq == 0:
+        if self.eval_freq > 0 and self.logger.name_to_value["train/human_buffer_size"] >= self.next_upd:
+            self.next_upd += self.eval_freq #% self.eval_freq == 0:
             # Sync training and eval env if there is VecNormalize
             if self.model.get_vec_normalize_env() is not None:
                 try:
@@ -445,6 +447,11 @@ class EvalCallback(EventCallback):
 
             # Dump log so the evaluation results are printed with the correct timestep
             self.logger.record("time/total_timesteps", self.num_timesteps)
+            try:
+                import wandb
+                wandb.log(self.logger.name_to_value, step=self.num_timesteps)
+            except:
+                pass
             self.logger.dump(self.num_timesteps)
 
             if mean_reward > self.best_mean_reward:

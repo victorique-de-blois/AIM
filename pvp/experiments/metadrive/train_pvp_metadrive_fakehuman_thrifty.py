@@ -31,7 +31,7 @@ if __name__ == '__main__':
     parser.add_argument("--save_freq", default=2500, type=int)
     parser.add_argument("--seed", default=0, type=int, help="The random seed.")
     parser.add_argument("--wandb", type=bool, default=True, help="Set to True to upload stats to wandb.")
-    parser.add_argument("--wandb_project", type=str, default="pvp", help="The project name for wandb.")
+    parser.add_argument("--wandb_project", type=str, default="apvp", help="The project name for wandb.")
     parser.add_argument("--wandb_team", type=str, default="victorique", help="The team name for wandb.")
     parser.add_argument("--log_dir", type=str, default="/home/caihy/pvp", help="Folder to store the logs.")
     parser.add_argument("--free_level", type=float, default=0.95)
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     #     help="The control device, selected from [wheel, gamepad, keyboard]."
     # )
     parser.add_argument("--thr_classifier", type=float, default=0.99)
-    parser.add_argument("--init_bc_steps", type=int, default=1000)
+    parser.add_argument("--init_bc_steps", type=int, default=200)
     parser.add_argument("--thr_actdiff", type=float, default=0.4)
     
     args = parser.parse_args()
@@ -135,8 +135,9 @@ if __name__ == '__main__':
             verbose=2,
             #seed=seed,
             device="auto",
-            num_instances=5,
-            policy_delay=200,
+            num_instances=1,
+            policy_delay=25,
+            gradient_steps=5,
         ),
 
         # Experiment log
@@ -210,7 +211,7 @@ if __name__ == '__main__':
         data, params, pytorch_variables = load_from_zip_file(ckpt, device=model.device, print_system_info=False)
         model.set_parameters(params, exact_match=True, device=model.device)
 
-    eval_freq, n_eval_episodes = 2500 // num_train_envs, 50
+    eval_freq, n_eval_episodes = 50 // num_train_envs, 50
 
     # ===== Launch training =====
     model.learn(
