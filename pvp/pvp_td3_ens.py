@@ -309,9 +309,10 @@ class PVPTD3ENS(PVPTD3):
                 stat_recorder[key].append(getattr(self, key))
         
         self.init_bc_steps = 200
-        if self.human_data_buffer.pos >= self.init_bc_steps - 1 and not hasattr(self, "trained"):
+        if self.num_timesteps >= self.init_bc_steps - 1 and not hasattr(self, "trained"):
             self.trained = True
             #thompson sample
+            lm = self.human_data_buffer.pos
             len_train = (int)(0.9 * lm)
             tmp_buffers_id = []
             for remote in self.remotes:
@@ -389,17 +390,26 @@ class PVPTD3ENS(PVPTD3):
                     remote.send(("train", (gradient_steps, batch_size, replay_data)))
                 for remote in self.remotes:
                     stat_recorders.append(remote.recv())
-            
+        
+        
+        if hasattr(self, "trained") and (self.human_data_buffer.pos % (8 * self.policy_delay) == 0):
             ##start train classifier
-            num_gd_steps = self.policy_delay
+            num_gd_steps = self.policy_delay * 8
             for _ in range(num_gd_steps):
                     with th.no_grad():
                         replay_data_human = self.human_data_buffer.sample(int(batch_size), env=self._vec_normalize_env)
                         new_action, _ = self.predict(replay_data_human.observations.cpu().numpy())
+                        new_action = th.Tensor(new_action).to(self.device)
                             
                     current_c_behavior = self.classifier.critic(replay_data_human.observations, replay_data_human.actions_behavior)[0]
-                    current_c_novice = self.classifier.critic(replay_data_human.observations, th.Tensor(new_action).to(self.device))[0]
-                    loss_class = th.mean((current_c_behavior + 1) ** 2 + (current_c_novice - 1) ** 2)
+                    
+                    current_c_novice = self.classifier.critic(replay_data_human.observations, new_action)[0]
+                    
+                    no_overlap = (
+                        ((replay_data_human.actions_behavior - new_action) ** 2).mean(dim=-1) > self.switch2robot_thresh
+                    ).float()
+                    
+                    loss_class = th.mean((current_c_behavior + 1) ** 2 + (current_c_novice * no_overlap - 1) ** 2)
                         
                     self.classifier.critic.optimizer.zero_grad()
                     loss_class.backward()

@@ -452,7 +452,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             # PZH: We modify here to record environment information
             first_ep_info = self.ep_info_buffer[-1]
             for k, v in first_ep_info.items():
-                if k not in ["r", "l"] and (type(v) is not str) and not ("total" in k):
+                if k not in ["r", "l"] and (type(v) is not str): #and not ("total" in k):
                     self.logger.record(
                         "rollout/{}_mean".format(k), safe_mean([ep_info[k] for ep_info in self.ep_info_buffer])
                     )

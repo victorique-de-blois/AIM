@@ -190,7 +190,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
             
                     
             if self.total_steps <= self.config['init_bc_steps']:
-                self.takeover = True
+                self.takeover = etakeover
             else:
                 unc = self.compute_uncertainty(actions)
                 self.takeover = False
