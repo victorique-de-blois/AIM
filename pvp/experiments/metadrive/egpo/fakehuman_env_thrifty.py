@@ -84,6 +84,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
     last_obs = None
     expert = None
     total_switch = 0
+    total_wall_steps = 0
 
     def __init__(self, config):
         self.unc = None
@@ -191,6 +192,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                     
             if self.total_steps <= self.config['init_bc_steps']:
                 self.takeover = etakeover
+                self.total_wall_steps += 1
             else:
                 unc = self.compute_uncertainty(actions)
                 self.takeover = False
@@ -203,6 +205,8 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                 
             if self.takeover:
                 actions = expert_action
+                if self.total_steps > self.config['init_bc_steps']:
+                    self.total_wall_steps += 1
 
         o, r, d, i = super(HumanInTheLoopEnv, self).step(actions)
         self.takeover_recorder.append(self.takeover)
@@ -226,6 +230,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
 
         assert i["takeover"] == self.takeover
         i["etakeover"] = etakeover
+        i["total_wall_steps"] = self.total_wall_steps
 
         if self.config["use_discrete"]:
             i["raw_action"] = self.continuous_to_discrete(i["raw_action"])
