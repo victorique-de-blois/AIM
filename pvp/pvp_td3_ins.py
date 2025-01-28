@@ -229,10 +229,10 @@ class PVPTD3(TD3):
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
         save_timesteps: int = 2000,
-        buffer_save_timesteps: int = 2000,
+        buffer_save_timesteps: int = 200,
         save_path_human: Union[str, pathlib.Path, io.BufferedIOBase] = "",
         save_path_replay: Union[str, pathlib.Path, io.BufferedIOBase] = "",
-        save_buffer: bool = True,
+        save_buffer: bool = False,
         load_buffer: bool = False,
         load_path_human: Union[str, pathlib.Path, io.BufferedIOBase] = "",
         load_path_replay: Union[str, pathlib.Path, io.BufferedIOBase] = "",
@@ -278,15 +278,15 @@ class PVPTD3(TD3):
                 # Special case when the user passes `gradient_steps=0`
                 if gradient_steps > 0:
                     self.train(batch_size=self.batch_size, gradient_steps=gradient_steps)
-            if save_buffer and self.num_timesteps > 0 and self.num_timesteps % buffer_save_timesteps == 0:
+            if save_buffer and self.human_data_buffer.pos > 0 and self.human_data_buffer.pos % buffer_save_timesteps == 0:
                 buffer_location_human = os.path.join(
-                    save_path_human, "human_buffer_" + str(self.num_timesteps) + ".pkl"
+                    save_path_human, "human_buffer_" + str(self.human_data_buffer.pos) + ".pkl"
                 )
                 buffer_location_replay = os.path.join(
-                    save_path_replay, "replay_buffer_" + str(self.num_timesteps) + ".pkl"
+                    save_path_replay, "replay_buffer_" + str(self.human_data_buffer.pos) + ".pkl"
                 )
                 buffer_location_all = os.path.join(
-                    save_path_replay, "all_buffer_" + str(self.num_timesteps) + ".pkl"
+                    save_path_replay, "all_buffer_" + str(self.human_data_buffer.pos) + ".pkl"
                 )
                 save_to_pkl(buffer_location_all, self.all_buffer, self.verbose)
                 logger.info("Saving..." + str(buffer_location_human))

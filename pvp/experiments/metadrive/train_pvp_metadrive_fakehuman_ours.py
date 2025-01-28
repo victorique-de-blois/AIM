@@ -237,6 +237,6 @@ if __name__ == '__main__':
         log_interval=1,
         save_buffer=True,
         load_buffer=False,
-        save_path_human = Path(log_dir) / Path("human_buffer_tb1_") / (str(seed)),
-        save_path_replay = Path(log_dir) / Path("novice_buffer_tb1_") / (str(seed)),
+        save_path_human = Path(log_dir) / Path("human_buffer_tb1_ours") / (str(seed)),
+        save_path_replay = Path(log_dir) / Path("novice_buffer_tb1_ours") / (str(seed)),
     )
