@@ -84,7 +84,6 @@ class FakeHumanEnv(HumanInTheLoopEnv):
     last_obs = None
     expert = None
     total_switch = 0
-    total_wall_steps = 0
 
     def __init__(self, config):
         self.unc = None
@@ -176,37 +175,34 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                 expert_action = self.continuous_to_discrete(expert_action)
                 expert_action = self.discrete_to_continuous(expert_action)
 
-            # from torch.nn import functional as F
-            # if hasattr(self, "model"):
-            #     if not hasattr(self.model, "trained"):
-            #         self.takeover = True
-            #     else:
-            #         if self.takeover:
-            #             self.takeover = (np.mean((actions - expert_action) ** 2) >= self.model.switch2robot_thresh)
-            #         else:
-            #             unc = self.model.compute_unc(self.last_obs)
-            #             self.takeover = (unc > self.model.switch2human_thresh)
-            # else:
-            #     self.takeover = True
+            from torch.nn import functional as F
+            if hasattr(self, "model"):
+                if not hasattr(self.model, "trained"):
+                    self.takeover = True
+                else:
+                    if self.takeover:
+                        self.takeover = (np.mean((actions - expert_action) ** 2) >= self.model.switch2robot_thresh)
+                    else:
+                        unc = self.model.compute_unc(self.last_obs)
+                        self.takeover = (unc > self.model.switch2human_thresh)
+            else:
+                self.takeover = True
             
                     
-            if self.total_steps <= self.config['init_bc_steps']:
-                self.takeover = etakeover
-                self.total_wall_steps += 1
-            else:
-                unc = self.compute_uncertainty(actions)
-                self.takeover = False
-                if not self.last_takeover:
-                    if unc > self.model.switch2human_thresh: #self.config['thr_classifier']:
-                        self.takeover = True
-                else:
-                    if np.mean((actions - expert_action) ** 2) > self.model.switch2robot_thresh: #self.config['thr_actdiff']:
-                        self.takeover = True
+            # if self.total_steps <= self.config['init_bc_steps']:
+            #     self.takeover = True
+            # else:
+            #     unc = self.compute_uncertainty(actions)
+            #     self.takeover = False
+            #     if not self.last_takeover:
+            #         if unc > self.model.switch2human_thresh: #self.config['thr_classifier']:
+            #             self.takeover = True
+            #     else:
+            #         if np.mean((actions - expert_action) ** 2) > self.model.switch2robot_thresh: #self.config['thr_actdiff']:
+            #             self.takeover = True
                 
             if self.takeover:
                 actions = expert_action
-                if self.total_steps > self.config['init_bc_steps']:
-                    self.total_wall_steps += 1
 
         o, r, d, i = super(HumanInTheLoopEnv, self).step(actions)
         self.takeover_recorder.append(self.takeover)
@@ -230,7 +226,6 @@ class FakeHumanEnv(HumanInTheLoopEnv):
 
         assert i["takeover"] == self.takeover
         i["etakeover"] = etakeover
-        i["total_wall_steps"] = self.total_wall_steps
 
         if self.config["use_discrete"]:
             i["raw_action"] = self.continuous_to_discrete(i["raw_action"])
