@@ -171,7 +171,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
             action_prob = action_prob[0]
             expert_action = expert_action[0]
 
-            etakeover = (np.mean((actions - expert_action) ** 2) > 0.05)
+            etakeover = (np.mean((actions - expert_action) ** 2) > 0.2)
             if self.config["use_discrete"]:
                 expert_action = self.continuous_to_discrete(expert_action)
                 expert_action = self.discrete_to_continuous(expert_action)
