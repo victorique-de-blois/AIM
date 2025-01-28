@@ -9,9 +9,9 @@ import os
 from pathlib import Path
 import uuid
 
-from pvp.experiments.metadrive.egpo.fakehuman_env_ours import FakeHumanEnv
+from pvp.experiments.metadrive.egpo.fakehuman_env_hg import FakeHumanEnv
 from pvp.experiments.metadrive.human_in_the_loop_env import HumanInTheLoopEnv
-from pvp.pvp_td3_ours import PVPTD3ENS
+from pvp.pvp_td3_ens import PVPTD3ENS
 from pvp.sb3.common.callbacks import CallbackList, CheckpointCallback
 from pvp.sb3.common.monitor_ens import Monitor
 from pvp.sb3.common.wandb_callback import WandbCallback
@@ -235,8 +235,6 @@ if __name__ == '__main__':
         # logging
         tb_log_name=experiment_batch_name,
         log_interval=1,
-        save_buffer=True,
+        save_buffer=False,
         load_buffer=False,
-        save_path_human = Path(log_dir) / Path("human_buffer_tb1_ours") / (str(seed)),
-        save_path_replay = Path(log_dir) / Path("novice_buffer_tb1_ours") / (str(seed)),
     )
