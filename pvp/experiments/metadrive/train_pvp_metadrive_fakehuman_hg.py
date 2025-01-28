@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import uuid
 
-from pvp.experiments.metadrive.egpo.fakehuman_env_pvp import FakeHumanEnv
+from pvp.experiments.metadrive.egpo.fakehuman_env_hg import FakeHumanEnv
 from pvp.experiments.metadrive.human_in_the_loop_env import HumanInTheLoopEnv
 from pvp.pvp_td3_ens import PVPTD3ENS
 from pvp.sb3.common.callbacks import CallbackList, CheckpointCallback
