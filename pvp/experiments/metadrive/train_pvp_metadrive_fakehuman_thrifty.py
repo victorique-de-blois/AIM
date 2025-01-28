@@ -63,7 +63,7 @@ if __name__ == '__main__':
     # control_device = args.device
     experiment_batch_name = "{}_freelevel{}".format(args.exp_name, args.free_level)
     seed = args.seed
-    trial_name = "{}_{}_{}".format(experiment_batch_name, get_time_str(), uuid.uuid4().hex[:8])
+    trial_name = "{}_{}_{}".format("thrifty", seed, get_time_str())
     print("Trial name is set to: ", trial_name)
 
     use_wandb = args.wandb
@@ -137,7 +137,7 @@ if __name__ == '__main__':
             device="auto",
             num_instances=5,
             policy_delay=25,
-            gradient_steps=1,
+            gradient_steps=5,
         ),
 
         # Experiment log
