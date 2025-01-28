@@ -235,6 +235,8 @@ if __name__ == '__main__':
         # logging
         tb_log_name=experiment_batch_name,
         log_interval=1,
-        save_buffer=False,
+        save_buffer=True,
         load_buffer=False,
+        save_path_human = Path(log_dir) / Path("human_buffer_tb1_thrifty") / (str(seed)),
+        save_path_replay = Path(log_dir) / Path("novice_buffer_tb1_thrifty") / (str(seed)),
     )
