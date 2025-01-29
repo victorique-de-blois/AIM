@@ -149,6 +149,7 @@ class PVPDQN(DQN):
             n_upd = self.policy_delay
         else:
             n_upd = 0
+
         for _ in tqdm.trange(gradient_steps * n_upd, desc="Gradient Steps"):
             if self.adaptive_batch_size:
                 pass
