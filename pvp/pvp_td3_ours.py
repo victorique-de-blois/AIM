@@ -458,3 +458,130 @@ class PVPTD3ENS(PVPTD3):
             pass
 
 
+    def train_offline(self, gradient_steps: int, batch_size: int = 100, timestep: int = 0) -> None:
+        stat_recorder = defaultdict(float)
+        stat_recorders = defaultdict(list)
+        lm = batch_size // self.env.num_envs
+        dd = ["takeover_current", "total_switch", "total_miss", "total_colorchange", "takeover"]
+        for key in dd:
+            if hasattr(self, key):
+                stat_recorder[key].append(getattr(self, key))
+        
+        self.init_bc_steps = 0
+        
+        self.timestep = timestep
+        
+        self.human_data_buffer.pos = timestep
+        
+        stat_recorders["wall_steps"].append(timestep)
+        
+        if True:
+            self.actor.reset_parameters()
+            self.trained = True
+
+
+            ##first training of student policies: bc
+            import tqdm
+            for _ in tqdm.trange(20000, desc="Gradient Steps"):
+                replay_data = self.human_data_buffer.sample(int(batch_size), env=self._vec_normalize_env)
+                a_pred = self.actor(replay_data.observations)
+                loss_pi = th.mean((replay_data.actions_behavior - a_pred)**2)
+                self.actor.optimizer.zero_grad()
+                loss_pi.backward()
+                self.actor.optimizer.step()
+                stat_recorders["loss_pi"].append(loss_pi.item())
+
+        avg_stat = defaultdict(float)
+        for stat_recorderins, values in stat_recorders.items():
+                avg_stat[stat_recorderins] += np.mean(values) / self.k
+        
+        avg_stat["human_buffer_size"] = self.human_data_buffer.pos
+        for key, values in avg_stat.items():
+            self.logger.record("train/{}".format(key), values)
+        
+        
+        self._n_updates += gradient_steps
+        self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
+
+        
+        stat_recorder["num_gd"] = self.num_gd
+        for key, values in stat_recorder.items():
+            self.logger.record("train/{}".format(key), values)
+        try:
+            import wandb
+            wandb.log(self.logger.name_to_value, step=(int)(timestep))
+        except:
+            pass
+        
+        
+
+    def learn_offline(
+        self,
+        total_timesteps: int,
+        callback: MaybeCallback = None,
+        log_interval: int = 4,
+        eval_env: Optional[GymEnv] = None,
+        eval_freq: int = -1,
+        n_eval_episodes: int = 5,
+        tb_log_name: str = "run",
+        eval_log_path: Optional[str] = None,
+        reset_num_timesteps: bool = True,
+        buffer_save_timesteps: int = 200,
+        save_path_human: Union[str, pathlib.Path, io.BufferedIOBase] = "",
+        save_path_replay: Union[str, pathlib.Path, io.BufferedIOBase] = "",
+        save_buffer: bool = False,
+        load_buffer: bool = True,
+        load_path_human: Union[str, pathlib.Path, io.BufferedIOBase] = "/home/caihy/pvp/pvp/human_buffer_22200.pkl",
+        load_path_replay: Union[str, pathlib.Path, io.BufferedIOBase] = "/home/caihy/pvp/pvp/replay_buffer_4000.pkl",
+    ) -> "OffPolicyAlgorithm":
+        if load_buffer:
+            self.load_replay_buffer(load_path_human, load_path_replay)
+        total_timesteps, callback = self._setup_learn(
+            total_timesteps,
+            eval_env,
+            callback,
+            eval_freq,
+            n_eval_episodes,
+            eval_log_path,
+            reset_num_timesteps,
+            tb_log_name,
+        )
+
+        callback.on_training_start(locals(), globals())
+        while self.num_timesteps < total_timesteps:
+            self.num_timesteps += 1
+            self.human_data_buffer.pos = self.num_timesteps
+            self.policy.set_training_mode(False)
+
+            num_collected_steps, num_collected_episodes = 0, 0
+
+            callback.on_rollout_start()
+            continue_training = True
+
+            if True:
+                self.num_timesteps += 1
+                self.since_last_reset += 1
+                num_collected_steps += 1
+
+                # Give access to local variables
+                callback.update_locals(locals())
+                # Only stop training if return value is False, not when it is None.
+                callback.on_step()
+
+                self._update_current_progress_remaining(self.num_timesteps, self._total_timesteps)
+
+                # For DQN, check if the target network should be updated
+                # and update the exploration schedule
+                # For SAC/TD3, the update is dones as the same time as the gradient update
+                # see https://github.com/hill-a/stable-baselines/issues/900
+                self._on_step()
+
+            callback.on_rollout_end()
+            if True:
+                gradient_steps = self.gradient_steps
+                assert gradient_steps > 0
+                # Special case when the user passes `gradient_steps=0`
+                if gradient_steps > 0:
+                    self.train(batch_size=self.batch_size, gradient_steps=gradient_steps)
+            
+        callback.on_training_end()
