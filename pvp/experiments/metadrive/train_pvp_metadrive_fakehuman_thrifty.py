@@ -211,7 +211,7 @@ if __name__ == '__main__':
         data, params, pytorch_variables = load_from_zip_file(ckpt, device=model.device, print_system_info=False)
         model.set_parameters(params, exact_match=True, device=model.device)
 
-    eval_freq, n_eval_episodes = 50 // num_train_envs, 50
+    eval_freq, n_eval_episodes = 1000 // num_train_envs, 50
 
     # ===== Launch training =====
     model.learn(

@@ -173,7 +173,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
             expert_action = expert_action[0]
 
             etakeover = (action_prob < 1 - self.config['free_level'])
-            i["miss"] = (np.mean(expert_action ** 2) > 0.2) and etakeover
+            i["miss"] = (np.mean(expert_action ** 2) > 0.2) * (np.mean((actions - expert_action) ** 2))
             self.total_miss += i["miss"]
             i["total_miss"] = self.total_miss
             if self.config["use_discrete"]:
