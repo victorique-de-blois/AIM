@@ -85,6 +85,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
     expert = None
     total_switch = 0
     total_wall_steps = 0
+    total_miss = 0
 
     def __init__(self, config):
         self.unc = None
@@ -172,6 +173,9 @@ class FakeHumanEnv(HumanInTheLoopEnv):
             expert_action = expert_action[0]
 
             etakeover = (action_prob < 1 - self.config['free_level'])
+            i["miss"] = (np.mean(expert_action ** 2) > 0.2) and etakeover
+            self.total_miss += i["miss"]
+            i["total_miss"] = self.total_miss
             if self.config["use_discrete"]:
                 expert_action = self.continuous_to_discrete(expert_action)
                 expert_action = self.discrete_to_continuous(expert_action)

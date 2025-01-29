@@ -83,6 +83,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
     last_takeover = None
     last_obs = None
     expert = None
+    total_miss = 0
 
     def __init__(self, config):
         super(FakeHumanEnv, self).__init__(config)
@@ -176,6 +177,10 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                 self.takeover = True
             else:
                 self.takeover = False
+            etakeover = self.takeover
+            i["miss"] = (np.mean(expert_action ** 2) > 0.2) and etakeover
+            self.total_miss += i["miss"]
+            i["total_miss"] = self.total_miss
             # print(f"Action probability: {action_prob:.3f}, agent action: {actions}, expert action: {expert_action}, takeover: {self.takeover}")
 
         o, r, d, i = super(HumanInTheLoopEnv, self).step(actions)
