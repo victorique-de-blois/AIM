@@ -11,7 +11,7 @@ import torch
 from pvp.experiments.minigrid.minigrid_env import MiniGridMultiRoomN2S4, MiniGridMultiRoomN4S5, \
     MiniGridEmpty6x6, MiniGridMultiRoomN4S16, wrap_minigrid_env, MiniGridEmpty16x16
 from pvp.experiments.minigrid.minigrid_model import MinigridCNN
-from pvp.pvp_dqn import PVPDQN
+from pvp.pvp_dqn_pvp import PVPDQN
 from pvp.pvp_dqn_cpl import PVPDQNCPL
 from pvp.sb3.common.callbacks import CallbackList, CheckpointCallback
 from pvp.sb3.common.monitor import Monitor
@@ -45,8 +45,7 @@ if __name__ == '__main__':
     env_name = args.env
     experiment_batch_name = "{}_{}".format(args.exp_name, env_name)
     seed = args.seed
-    trial_name = "{}_{}_{}".format("OURS", seed, get_time_str())
-
+    trial_name = "{}_{}_{}".format("PVP", seed, get_time_str())
 
     use_wandb = args.wandb
     project_name = args.wandb_project
@@ -130,7 +129,7 @@ if __name__ == '__main__':
     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     # env = wrap_minigrid_env(env_class, enable_takeover=True)
     env, unwrapped_env = wrap_minigrid_env(
-        env_class, enable_takeover=False, use_fake_human=True, use_fake_human_robotgate=True, use_fake_human_with_failure=use_fake_human_with_failure
+        env_class, enable_takeover=False, use_fake_human=True, use_fake_human_robotgate=False, use_fake_human_with_failure=use_fake_human_with_failure
     )
     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -195,16 +194,16 @@ if __name__ == '__main__':
 
         # eval
         eval_env=eval_env,
-        eval_freq=50,  # Evaluate every 20 steps in training.
+        eval_freq=100,  # Evaluate every 20 steps in training.
         n_eval_episodes=50,
         eval_log_path=str(trial_dir),
 
         # logging
         tb_log_name=experiment_batch_name,
         log_interval=1,
-                save_buffer=True,
+        save_buffer=True,
         load_buffer=False,
-        save_path_human = Path("human_buffer_tb2grid_ours") / (str(seed)),
-        save_path_replay = Path("novice_buffer_tb2grid_ours") / (str(seed)),
+        save_path_human = Path("human_buffer_tb2grid_pvp") / (str(seed)),
+        save_path_replay = Path("novice_buffer_tb2grid_pvp") / (str(seed)),
  
     )
