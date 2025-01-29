@@ -85,6 +85,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
     expert = None
     total_switch = 0
     total_wall_steps = 0
+    total_miss = 0
 
     def __init__(self, config):
         self.unc = None
@@ -175,6 +176,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
             if self.config["use_discrete"]:
                 expert_action = self.continuous_to_discrete(expert_action)
                 expert_action = self.discrete_to_continuous(expert_action)
+                
 
             # from torch.nn import functional as F
             # if hasattr(self, "model"):
@@ -208,6 +210,10 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                 self.total_wall_steps += (self.total_steps > self.config['init_bc_steps'])
 
         o, r, d, i = super(HumanInTheLoopEnv, self).step(actions)
+        i["miss"] = (np.mean(expert_action ** 2) > 0.2) and etakeover
+        self.total_miss += i["miss"]
+        i["total_miss"] = self.total_miss
+
         self.takeover_recorder.append(self.takeover)
         self.total_steps += 1
 

@@ -339,7 +339,7 @@ class MinigridWrapper(gym.Wrapper):
         i["takeover_start"] = True if takeover_start else False
         i["takeover"] = True if should_takeover else False
         i["is_success"] = i["success"] = True if r > 0.0 else False
-        i["expert_toggle"] = 1 if (self.keyboard_action == 5) else 0
+        i["expert_toggle"] = 1 if (self.keyboard_action == 5) and (a != 5) else 0
         self.total_expert_toggle += i["expert_toggle"]
         i["total_expert_toggle"] = self.total_expert_toggle
         self.takeover = should_takeover
