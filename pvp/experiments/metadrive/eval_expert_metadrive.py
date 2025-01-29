@@ -20,6 +20,60 @@ def register_env(make_env_fn, env_name):
 
 
 if __name__ == '__main__':
+
+    import pandas as pd
+    import wandb
+    import pandas as pd
+    import matplotlib.pyplot as plt
+
+    # 假设 group_data 已经包含了合并后的数据
+    # Filtering out columns that contain 'min' or 'max' to only include 'eval/success_rate' columns
+    
+    file_path =  "/home/caihy/pvp/pvp/experiments/metadrive/grouped_data.csv" # 请替换为您的文件路径
+    data = pd.read_csv(file_path)
+
+    # 对数据按 'train/wall_steps' 列进行分组，并计算每个组的均值
+    grouped_data = data.groupby('train/wall_steps').mean().reset_index()
+
+    # 查看处理后的数据
+    print(grouped_data.head())
+    
+    
+    filtered_columns = [col for col in grouped_data.columns if 'eval/success_rate' in col and 'min' not in col and 'max' not in col]
+
+    # Plotting eval/success_rate against 'train/wall_steps' with the filtered columns
+    plt.figure(figsize=(10, 6))
+
+    for y_col in filtered_columns:
+        plt.plot(grouped_data['train/wall_steps'], grouped_data[y_col], marker='o', label=y_col, linestyle='-', markersize=5)
+
+    # Adding labels and title
+    plt.xlabel('Train Wall Steps')
+    plt.ylabel('Success Rate')
+    plt.title('Success Rate vs Train Wall Steps (Filtered)')
+    plt.legend()
+    plt.grid(True)
+
+    plt.savefig('success_rate_vs_train_wall_steps.png')
+    # Display the plot
+    plt.show()
+    
+    assert False
+    wandb.init()
+    # 读取 CSV 文件
+    csv_file = "/home/caihy/pvp/pvp/experiments/metadrive/grouped_data.csv"  # 替换为你的 CSV 文件路径
+    df = pd.read_csv(csv_file)
+
+    # 创建一个 W&B Artifact
+    artifact = wandb.Artifact("dataset_name", type="dataset")
+
+    # 添加 CSV 文件到 Artifact
+    artifact.add_file(csv_file)
+
+    # 记录 Artifact
+    wandb.log_artifact(artifact)
+    assert False
+    
     parser = argparse.ArgumentParser()
     parser.add_argument("--exp_name", default="ppo_metadrive", type=str, help="The name for this batch of experiments.")
     parser.add_argument("--seed", default=0, type=int, help="The random seed.")
@@ -153,6 +207,8 @@ if __name__ == '__main__':
             )
         )
     callbacks = CallbackList(callbacks)
+    
+
 
     # ===== Setup the training algorithm =====
     model = PPO(**config["algo"])

@@ -29,7 +29,7 @@ if __name__ == '__main__':
     
     parser.add_argument(
         "--env",
-        default="emptyroom",
+        default="fourroomlarge",
         type=str,
         help="Nick name of the environment.",
         choices=["emptyroom", "tworoom", "fourroom", "fourroomlarge"]

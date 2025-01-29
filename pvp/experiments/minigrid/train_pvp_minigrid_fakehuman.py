@@ -25,15 +25,15 @@ if __name__ == '__main__':
     parser.add_argument(
         "--exp_name", default="pvp_minigrid_fakehuman", type=str, help="The name for this batch of experiments."
     )
-    parser.add_argument("--seed", default=1023, type=int, help="The random seed.")
+    parser.add_argument("--seed", default=0, type=int, help="The random seed.")
     parser.add_argument("--use_fake_human_with_failure", action="store_true")
     parser.add_argument("--wandb", type=bool, default=True, help="Set to True to upload stats to wandb.")
-    parser.add_argument("--wandb_project", type=str, default="grid_fakehuman", help="The project name for wandb.")
+    parser.add_argument("--wandb_project", type=str, default="Table2", help="The project name for wandb.")
     parser.add_argument("--wandb_team", type=str, default="victorique", help="The team name for wandb.")
     
     parser.add_argument(
         "--env",
-        default="emptyroom",
+        default="fourroomlarge",
         type=str,
         help="Nick name of the environment.",
         choices=["emptyroom", "emptyroom16", "tworoom", "fourroom", "fourroomlarge"]
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     env_name = args.env
     experiment_batch_name = "{}_{}".format(args.exp_name, env_name)
     seed = args.seed
-    trial_name = "{}_{}".format(experiment_batch_name, get_time_str())
+    trial_name = "{}_{}".format("Ours", seed)
 
     use_wandb = args.wandb
     project_name = args.wandb_project
@@ -194,11 +194,16 @@ if __name__ == '__main__':
 
         # eval
         eval_env=eval_env,
-        eval_freq=100,  # Evaluate every 20 steps in training.
+        eval_freq=50,  # Evaluate every 20 steps in training.
         n_eval_episodes=50,
         eval_log_path=str(trial_dir),
 
         # logging
         tb_log_name=experiment_batch_name,
         log_interval=1,
+                save_buffer=True,
+        load_buffer=False,
+        save_path_human = Path("human_buffer_tb2grid_ours") / (str(seed)),
+        save_path_replay = Path("novice_buffer_tb2grid_ours") / (str(seed)),
+ 
     )

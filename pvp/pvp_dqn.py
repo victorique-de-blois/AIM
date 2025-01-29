@@ -106,6 +106,7 @@ class PVPDQN(DQN):
 
         losses = []
         entropies = []
+        stat_recorder["wall_steps"] = self.human_data_buffer.pos
 
         if self.adaptive_batch_size:
             replay_data_human = self.human_data_buffer.sample(
