@@ -137,7 +137,7 @@ if __name__ == '__main__':
             device="auto",
             num_instances=5,
             policy_delay=25,
-            gradient_steps=5,
+            gradient_steps=1,
         ),
 
         # Experiment log
