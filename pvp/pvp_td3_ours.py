@@ -582,6 +582,6 @@ class PVPTD3ENS(PVPTD3):
                 assert gradient_steps > 0
                 # Special case when the user passes `gradient_steps=0`
                 if gradient_steps > 0:
-                    self.train(batch_size=self.batch_size, gradient_steps=gradient_steps)
+                    self.train_offline(batch_size=self.batch_size, gradient_steps=gradient_steps)
             
         callback.on_training_end()
