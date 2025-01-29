@@ -371,7 +371,7 @@ class EvalCallback(EventCallback):
 
     def _on_step(self) -> bool:
 
-        if self.eval_freq > 0 and self.logger.name_to_value["train/human_buffer_size"] >= self.next_upd:
+        if self.eval_freq > 0 and self.logger.name_to_value["train/wall_steps"] >= self.next_upd:
             self.next_upd += self.eval_freq #% self.eval_freq == 0:
             # Sync training and eval env if there is VecNormalize
             if self.model.get_vec_normalize_env() is not None:

@@ -52,14 +52,13 @@ def _worker(remote: mp.connection.Connection, parent_remote: mp.connection.Conne
 class PVPTD3ENS(PVPTD3):
     def __init__(self, num_instances=1, *args, **kwargs):
         self.k = num_instances
-        self.classifier = kwargs.get("classifier")
         self.ensembles = [PVPTD3(seed=_, *args, **kwargs) for _ in range(num_instances)]
         self.actors = th.nn.ModuleList([self.ensembles[_].actor for _ in range(num_instances)])
         self.critics = th.nn.ModuleList([self.ensembles[_].critic for _ in range(num_instances)])
         self.pvpinstance = False
         self.num_gd = 0
-        self.next_update = 0
         self.estimates = []
+        self.next_update = 0
         super(PVPTD3ENS, self).__init__(seed=0, *args, **kwargs)
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
         state_dicts = ["actors", "critics"]
@@ -236,15 +235,13 @@ class PVPTD3ENS(PVPTD3):
             )
 
             if hasattr(self, "trained"):
-                th_obs = th.from_numpy(self._last_obs).to(self.device)
-                th_actions = th.from_numpy(actions).to(self.device)
-                unc = self.classifier.critic(th_obs, th_actions)[0].item()
+                all_actions, _ = self.predict(observation=self._last_obs, return_all=True)
+                heldout_estim = all_actions.var(axis = 0).mean()
+                self.estimates.append(heldout_estim)
+
 
             # Rescale and perform action
             new_obs, rewards, dones, infos = env.step(actions)
-            
-            if hasattr(self, "trained") and not infos[0]["takeover"]:
-                self.estimates.append(unc)
 
             self.num_timesteps += env.num_envs
             self.since_last_reset += env.num_envs
@@ -278,7 +275,7 @@ class PVPTD3ENS(PVPTD3):
                     self.policy_choice[idx] = np.random.randint(self.k)
 
                     if len(self.estimates) > 25:
-                        self.switch2human_thresh = th.quantile(th.Tensor(self.estimates).squeeze(), self.extra_config["thr_classifier"]).item()
+                        self.switch2human_thresh = th.quantile(th.Tensor(self.estimates), 0.95).item()
                         self.uthred = [self.switch2human_thresh, self.switch2robot_thresh]
 
                     # Update stats
@@ -288,6 +285,7 @@ class PVPTD3ENS(PVPTD3):
                     if action_noise is not None:
                         kwargs = dict(indices=[idx]) if env.num_envs > 1 else {}
                         action_noise.reset(**kwargs)
+
                     # Log training infos
                     if log_interval is not None and self._episode_num % log_interval == 0:
                         self._dump_logs()
@@ -300,7 +298,6 @@ class PVPTD3ENS(PVPTD3):
         return RolloutReturn(num_collected_steps * env.num_envs, num_collected_episodes, continue_training)
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
-        stat_recorder = defaultdict(float)
         stat_recorders = []
         lm = batch_size // self.env.num_envs
         dd = ["takeover_current", "total_switch", "total_miss", "total_colorchange", "takeover"]
@@ -308,21 +305,11 @@ class PVPTD3ENS(PVPTD3):
             if hasattr(self, key):
                 stat_recorder[key].append(getattr(self, key))
         
-        self.init_bc_steps = 200
-        
-        if not hasattr(self, "trained"):
-            stat_recorder["wall_steps"] = self.num_timesteps
-        else:
-            stat_recorder["wall_steps"] = self.human_data_buffer.pos - self.initial_demos + self.init_bc_steps
-        
-        if self.num_timesteps >= self.init_bc_steps - 1 and not hasattr(self, "trained"):
+        self.init_bc_steps = 0
+        if self.num_timesteps >= self.init_bc_steps and not hasattr(self, "trained"):
             self.trained = True
             #thompson sample
-            lm = self.human_data_buffer.pos
-            
-            self.initial_demos = lm
-            
-            len_train = (int)(0.9 * lm)
+            len_train = (int)(0.9 * self.init_bc_steps)
             tmp_buffers_id = []
             for remote in self.remotes:
                 tmp_buffers_id.append(np.random.randint(0, len_train, size=len_train))
@@ -337,21 +324,6 @@ class PVPTD3ENS(PVPTD3):
                     remote.send(("train", (gradient_steps, batch_size, replay_data)))
                 for remote in self.remotes:
                     stat_recorders.append(remote.recv())
-            ##start train classifier
-            num_gd_steps = self.init_bc_steps #self.policy_delay
-            for _ in range(num_gd_steps):
-                    with th.no_grad():
-                        replay_data_human = self.human_data_buffer.sample(int(batch_size), env=self._vec_normalize_env)
-                        new_action, _ = self.predict(replay_data_human.observations.cpu().numpy())
-                            
-                    current_c_behavior = self.classifier.critic(replay_data_human.observations, replay_data_human.actions_behavior)[0]
-                    current_c_novice = self.classifier.critic(replay_data_human.observations, th.Tensor(new_action).to(self.device))[0]
-                    loss_class = th.mean((current_c_behavior + 1) ** 2 + (current_c_novice - 1) ** 2)
-                        
-                    self.classifier.critic.optimizer.zero_grad()
-                    loss_class.backward()
-                    self.classifier.critic.optimizer.step()
-            stat_recorder["loss_class"] = loss_class.item()
             self.estimates = []
 
             train_data = self.human_data_buffer._get_samples(np.arange(len_train), env=self._vec_normalize_env)
@@ -366,20 +338,13 @@ class PVPTD3ENS(PVPTD3):
             #change train_data.actions_novice to new actions  chy: 0108
             
             self.switch2robot_thresh = th.mean(discre).item()
-            # self.switch2human_thresh = th.quantile(heldout_estim, 0.95).item()
-            # self.uthred = [self.switch2human_thresh, self.switch2robot_thresh]
-            # self.human_data_buffer.pos = len_train
-            with th.no_grad():
-                replay_data_human = val_data #self.human_data_buffer.sample(int(batch_size), env=self._vec_normalize_env)
-                new_action, _ = self.predict(replay_data_human.observations.cpu().numpy())
-                current_c_novice = self.classifier.critic(replay_data_human.observations, th.Tensor(new_action).to(self.device))[0]
-            self.estimates = current_c_novice.squeeze().tolist()
-            self.switch2human_thresh = th.quantile(current_c_novice, self.extra_config["thr_classifier"]).item()
-            self.next_update = self.human_data_buffer.pos + self.policy_delay
+            self.switch2human_thresh = th.quantile(heldout_estim, 0.95).item()
+            self.uthred = [self.switch2human_thresh, self.switch2robot_thresh]
+            self.next_update = self.init_bc_steps + self.policy_delay
             
         
-        if hasattr(self, "trained") and (self.human_data_buffer.pos >= self.next_update):
-            self.next_update = self.human_data_buffer.pos + self.policy_delay
+        if hasattr(self, "trained") and (self.num_timesteps >= self.next_update):
+            self.next_update = self.num_timesteps + self.policy_delay
             self.estimates = []
             ##Now we do not retrain pi from scratch for fairness
             if self.human_data_buffer.full:
@@ -399,32 +364,6 @@ class PVPTD3ENS(PVPTD3):
                     remote.send(("train", (gradient_steps, batch_size, replay_data)))
                 for remote in self.remotes:
                     stat_recorders.append(remote.recv())
-        
-        
-        if hasattr(self, "trained") and (self.human_data_buffer.pos % (8 * self.policy_delay) == 0):
-            ##start train classifier
-            num_gd_steps = self.policy_delay * 8
-            for _ in range(num_gd_steps):
-                    with th.no_grad():
-                        replay_data_human = self.human_data_buffer.sample(int(batch_size), env=self._vec_normalize_env)
-                        new_action, _ = self.predict(replay_data_human.observations.cpu().numpy())
-                        new_action = th.Tensor(new_action).to(self.device)
-                            
-                    current_c_behavior = self.classifier.critic(replay_data_human.observations, replay_data_human.actions_behavior)[0]
-                    
-                    current_c_novice = self.classifier.critic(replay_data_human.observations, new_action)[0]
-                    
-                    no_overlap = (
-                        ((replay_data_human.actions_behavior - new_action) ** 2).mean(dim=-1) > self.switch2robot_thresh * 1.5
-                    ).float()
-                    
-                    loss_class = th.mean((current_c_behavior + 1) ** 2 + (current_c_novice * no_overlap - 1) ** 2)
-                        
-                    self.classifier.critic.optimizer.zero_grad()
-                    loss_class.backward()
-                    self.classifier.critic.optimizer.step()
-            stat_recorder["loss_class"] = loss_class.item()
-            ## change to quantile
 
         for remote in self.remotes:
             remote.send(("set_training_mode", False))
@@ -436,7 +375,6 @@ class PVPTD3ENS(PVPTD3):
             for key, values in stat_recorderins.items():
                 avg_stat[key] += np.mean(values) / self.k
         
-        avg_stat["human_buffer_size"] = self.human_data_buffer.pos
         for key, values in avg_stat.items():
             self.logger.record("train/{}".format(key), values)
         
@@ -444,8 +382,10 @@ class PVPTD3ENS(PVPTD3):
         self._n_updates += gradient_steps
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
 
-        
+        stat_recorder = defaultdict(float)
         stat_recorder["num_gd"] = self.num_gd
+        stat_recorder["wall_steps"] = self.num_timesteps
+        stat_recorder["human_buffer_size"] = self.human_data_buffer.pos
         if hasattr(self, "trained"):
             stat_recorder["switch2human_thresh"] = self.switch2human_thresh
             stat_recorder["switch2robot_thresh"] = self.switch2robot_thresh
@@ -456,5 +396,3 @@ class PVPTD3ENS(PVPTD3):
             wandb.log(self.logger.name_to_value, step=self.num_timesteps)
         except:
             pass
-
-

@@ -117,7 +117,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                 "disable_expert": False,
 
                 "agent_policy": EnvInputPolicy,
-                "free_level": 0.95,
+                "free_level": 0.99,
                 "init_bc_steps": 200,
                 "lr_classifier": 1e-4,
                 "thr_classifier": 0.5,
