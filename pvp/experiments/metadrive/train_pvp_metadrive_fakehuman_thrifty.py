@@ -211,7 +211,7 @@ if __name__ == '__main__':
         data, params, pytorch_variables = load_from_zip_file(ckpt, device=model.device, print_system_info=False)
         model.set_parameters(params, exact_match=True, device=model.device)
 
-    eval_freq, n_eval_episodes = 1000 // num_train_envs, 50
+    eval_freq, n_eval_episodes = 5000 // num_train_envs, 50
 
     # ===== Launch training =====
     model.learn(
@@ -235,7 +235,7 @@ if __name__ == '__main__':
         # logging
         tb_log_name=experiment_batch_name,
         log_interval=1,
-        save_buffer=True,
+        save_buffer=False,
         load_buffer=False,
         save_path_human = Path(log_dir) / Path("human_buffer_tb1_thrifty") / (str(seed)),
         save_path_replay = Path(log_dir) / Path("novice_buffer_tb1_thrifty") / (str(seed)),

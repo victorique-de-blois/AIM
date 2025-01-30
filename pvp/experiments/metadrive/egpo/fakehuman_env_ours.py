@@ -210,7 +210,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                 self.total_wall_steps += (self.total_steps > self.config['init_bc_steps'])
 
         o, r, d, i = super(HumanInTheLoopEnv, self).step(actions)
-        i["miss"] = (np.mean(expert_action ** 2) > 0.2) * (np.mean((actions - expert_action) ** 2))
+        i["miss"] = (np.mean(expert_action ** 2) > 0.2) * (np.mean((actions - expert_action) ** 2) > 0.1)
         self.total_miss += i["miss"]
         i["total_miss"] = self.total_miss
 

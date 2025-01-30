@@ -274,10 +274,6 @@ class PVPTD3ENS(PVPTD3):
 
                     self.policy_choice[idx] = np.random.randint(self.k)
 
-                    if len(self.estimates) > 25:
-                        self.switch2human_thresh = th.quantile(th.Tensor(self.estimates), 0.95).item()
-                        self.uthred = [self.switch2human_thresh, self.switch2robot_thresh]
-
                     # Update stats
                     num_collected_episodes += 1
                     self._episode_num += 1
@@ -338,7 +334,7 @@ class PVPTD3ENS(PVPTD3):
             #change train_data.actions_novice to new actions  chy: 0108
             
             self.switch2robot_thresh = th.mean(discre).item()
-            self.switch2human_thresh = th.quantile(heldout_estim, 0.95).item()
+            self.switch2human_thresh = th.quantile(heldout_estim, 0.9).item()
             self.uthred = [self.switch2human_thresh, self.switch2robot_thresh]
             self.next_update = self.init_bc_steps + self.policy_delay
             
@@ -383,6 +379,7 @@ class PVPTD3ENS(PVPTD3):
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
 
         stat_recorder = defaultdict(float)
+        stat_recorder["wall_steps"] = self.human_data_buffer.pos
         stat_recorder["num_gd"] = self.num_gd
         stat_recorder["human_buffer_size"] = self.human_data_buffer.pos
         if hasattr(self, "trained"):

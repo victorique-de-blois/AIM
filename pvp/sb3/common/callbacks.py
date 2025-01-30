@@ -308,7 +308,7 @@ class EvalCallback(EventCallback):
         self.deterministic = deterministic
         self.render = render
         self.warn = warn
-        self.next_upd = 0
+        self.next_upd = 200
 
         # Convert to VecEnv for consistency
         if not isinstance(eval_env, VecEnv):
