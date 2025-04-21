@@ -24,7 +24,7 @@ from pvp.sb3.common.env_util import make_vec_env
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--exp_name", default="thrifty", type=str, help="The name for this batch of experiments."
+        "--exp_name", default="thrifty_0421", type=str, help="The name for this batch of experiments."
     )
     parser.add_argument("--batch_size", default=1024, type=int)
     parser.add_argument("--learning_starts", default=10, type=int)
@@ -213,7 +213,7 @@ if __name__ == '__main__':
         data, params, pytorch_variables = load_from_zip_file(ckpt, device=model.device, print_system_info=False)
         model.set_parameters(params, exact_match=True, device=model.device)
 
-    eval_freq, n_eval_episodes = 5000 // num_train_envs, 50
+    eval_freq, n_eval_episodes = 50, 50
 
     # ===== Launch training =====
     model.learn(
