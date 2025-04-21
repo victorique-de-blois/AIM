@@ -24,14 +24,14 @@ from pvp.sb3.common.env_util import make_vec_env
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--exp_name", default="pvp_metadrive_fakehuman", type=str, help="The name for this batch of experiments."
+        "--exp_name", default="thrifty", type=str, help="The name for this batch of experiments."
     )
     parser.add_argument("--batch_size", default=1024, type=int)
     parser.add_argument("--learning_starts", default=10, type=int)
     parser.add_argument("--save_freq", default=2500, type=int)
     parser.add_argument("--seed", default=0, type=int, help="The random seed.")
     parser.add_argument("--wandb", type=bool, default=True, help="Set to True to upload stats to wandb.")
-    parser.add_argument("--wandb_project", type=str, default="table1", help="The project name for wandb.")
+    parser.add_argument("--wandb_project", type=str, default="ICML2025AIM", help="The project name for wandb.")
     parser.add_argument("--wandb_team", type=str, default="victorique", help="The team name for wandb.")
     parser.add_argument("--log_dir", type=str, default="/home/caihy/pvp", help="Folder to store the logs.")
     parser.add_argument("--free_level", type=float, default=0.95)
@@ -61,7 +61,9 @@ if __name__ == '__main__':
 
     # ===== Set up some arguments =====
     # control_device = args.device
-    experiment_batch_name = "{}_freelevel{}".format(args.exp_name, args.free_level)
+    experiment_batch_name = "{}".format(args.exp_name)
+    if args.only_bc_loss == "True":
+        experiment_batch_name = "HG-DAgger"
     seed = args.seed
     trial_name = "{}_{}_{}".format("thrifty", seed, get_time_str())
     print("Trial name is set to: ", trial_name)
