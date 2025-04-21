@@ -7,8 +7,6 @@ import warnings
 from copy import deepcopy
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
-from torchmetrics import PrecisionRecallCurve
-from torchmetrics.classification import BinaryAveragePrecision
 import numpy as np
 import torch as th
 import gym
@@ -296,10 +294,11 @@ class PVPTD3ENS(PVPTD3):
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         stat_recorders = []
         lm = batch_size // self.env.num_envs
-        dd = ["takeover_current", "total_switch", "total_miss", "total_colorchange", "takeover"]
+        stat_recorder = defaultdict(float)
+        dd = ["takeover_current", "total_switch", "total_miss", "miss", "ep_miss_mean", "total_colorchange", "takeover"]
         for key in dd:
             if hasattr(self, key):
-                stat_recorder[key].append(getattr(self, key))
+                stat_recorder[key] = getattr(self, key)
         
         self.init_bc_steps = 200
         if self.human_data_buffer.pos >= self.init_bc_steps and not hasattr(self, "trained"):
@@ -378,7 +377,6 @@ class PVPTD3ENS(PVPTD3):
         self._n_updates += gradient_steps
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
 
-        stat_recorder = defaultdict(float)
         stat_recorder["wall_steps"] = self.human_data_buffer.pos
         stat_recorder["num_gd"] = self.num_gd
         stat_recorder["human_buffer_size"] = self.human_data_buffer.pos

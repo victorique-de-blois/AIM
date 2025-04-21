@@ -65,6 +65,7 @@ class Monitor(gym.Wrapper):
 
         # PZH: Ours
         self.episode_infos = defaultdict(list)
+        self.episode_infos2 = defaultdict(list)
 
         self.total_steps = 0
         self.current_reset_info = {}  # extra info about the current episode, that was passed in during reset()
@@ -105,24 +106,28 @@ class Monitor(gym.Wrapper):
         for key in self.info_keywords:
             try:
                 self.episode_infos[key].append(info[key])
+                self.episode_infos2[key].append(info[key])
             except:
                 continue
 
         if done:
-            ep_info = {"r": round(ep_rew, 6), "l": ep_len, "t": round(time.time() - self.t_start, 6)}
+            ep_info = {} #
         else:
             ep_info = {}
         special_words = ["miss"]
         for key in special_words:
             ep_info[key] = info[key]
-            ep_data = np.asarray(self.episode_infos[key])
+            ep_data = np.asarray(self.episode_infos2[key])
             ep_info["ep_{}".format(key)] = np.mean(ep_data)
-        
+            try:
+                self.env.model.ep_miss_mean = ep_info["ep_miss"]
+            except:
+                pass
         if done:
             self.needs_reset = True
             ep_rew = sum(self.rewards)
             ep_len = len(self.rewards)
-            
+            ep_info.update({"r": round(ep_rew, 6), "l": ep_len, "t": round(time.time() - self.t_start, 6)})
             for key in self.info_keywords:
                 ep_info[key] = info[key]
                 ep_data = np.asarray(self.episode_infos[key])

@@ -213,7 +213,11 @@ class FakeHumanEnv(HumanInTheLoopEnv):
         i["miss"] = (np.mean(expert_action ** 2) > 0.2) * (np.mean((actions - expert_action) ** 2) > 0.1)
         self.total_miss += i["miss"]
         i["total_miss"] = self.total_miss
-
+        try:
+            self.model.miss = int(i["miss"])
+            self.model.total_miss = int(self.total_miss)
+        except:
+            pass
         self.takeover_recorder.append(self.takeover)
         self.total_steps += 1
 
