@@ -4,8 +4,6 @@ import os
 import pathlib
 from collections import defaultdict
 from typing import Any, Dict, List, Union, Optional
-from torchmetrics import PrecisionRecallCurve
-from torchmetrics.classification import BinaryAveragePrecision
 import numpy as np
 import torch as th
 from torch.nn import functional as F
