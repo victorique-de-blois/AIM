@@ -435,6 +435,7 @@ class EvalCallback(EventCallback):
             # Add to current Logger
             self.logger.record("eval/mean_reward", float(mean_reward))
             self.logger.record("eval/mean_ep_length", mean_ep_length)
+            self.logger.record("eval/wall_steps", self.next_upd // self.eval_freq * self.eval_freq - self.eval_freq)
 
             if len(self._is_success_buffer) > 0:
                 success_rate = np.mean(self._is_success_buffer)
