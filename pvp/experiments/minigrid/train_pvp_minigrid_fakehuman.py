@@ -23,12 +23,12 @@ from pvp.utils.utils import get_time_str
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--exp_name", default="pvp_minigrid_fakehuman", type=str, help="The name for this batch of experiments."
+        "--exp_name", default="Ours_0421", type=str, help="The name for this batch of experiments."
     )
     parser.add_argument("--seed", default=0, type=int, help="The random seed.")
     parser.add_argument("--use_fake_human_with_failure", action="store_true")
     parser.add_argument("--wandb", type=bool, default=True, help="Set to True to upload stats to wandb.")
-    parser.add_argument("--wandb_project", type=str, default="Table2", help="The project name for wandb.")
+    parser.add_argument("--wandb_project", type=str, default="ICML2025AIM", help="The project name for wandb.")
     parser.add_argument("--wandb_team", type=str, default="victorique", help="The team name for wandb.")
     
     parser.add_argument(
