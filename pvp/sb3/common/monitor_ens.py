@@ -111,6 +111,8 @@ class Monitor(gym.Wrapper):
                 continue
         
         if done:
+            ep_rew = sum(self.rewards)
+            ep_len = len(self.rewards)
             ep_info = {"r": round(ep_rew, 6), "l": ep_len, "t": round(time.time() - self.t_start, 6)}
         else:
             ep_info = {}
