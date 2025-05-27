@@ -298,12 +298,13 @@ class PVPTD3ENS(PVPTD3):
         return RolloutReturn(num_collected_steps * env.num_envs, num_collected_episodes, continue_training)
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
+        stat_recorder = defaultdict(float)
         stat_recorders = []
         lm = batch_size // self.env.num_envs
         dd = ["takeover_current", "total_switch", "total_miss", "miss", "ep_miss_mean", "total_colorchange", "takeover"]
         for key in dd:
             if hasattr(self, key):
-                stat_recorder[key].append(getattr(self, key))
+                stat_recorder[key] = getattr(self, key)
         
         self.init_bc_steps = 0
         if self.num_timesteps >= self.init_bc_steps and not hasattr(self, "trained"):
@@ -382,7 +383,6 @@ class PVPTD3ENS(PVPTD3):
         self._n_updates += gradient_steps
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
 
-        stat_recorder = defaultdict(float)
         stat_recorder["num_gd"] = self.num_gd
         stat_recorder["wall_steps"] = self.num_timesteps
         stat_recorder["human_buffer_size"] = self.human_data_buffer.pos
