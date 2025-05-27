@@ -300,7 +300,7 @@ class PVPTD3ENS(PVPTD3):
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         stat_recorders = []
         lm = batch_size // self.env.num_envs
-        dd = ["takeover_current", "total_switch", "total_miss", "total_colorchange", "takeover"]
+        dd = ["takeover_current", "total_switch", "total_miss", "miss", "ep_miss_mean", "total_colorchange", "takeover"]
         for key in dd:
             if hasattr(self, key):
                 stat_recorder[key].append(getattr(self, key))
