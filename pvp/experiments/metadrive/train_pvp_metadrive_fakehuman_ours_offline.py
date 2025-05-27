@@ -61,9 +61,9 @@ if __name__ == '__main__':
 
     # ===== Set up some arguments =====
     # control_device = args.device
-    experiment_batch_name = "{}_freelevel{}".format(args.exp_name, args.free_level)
+    experiment_batch_name = "{}_offline".format("PVP")
     seed = args.seed
-    trial_name = "{}_{}_{}".format("ours", seed, get_time_str())
+    trial_name = "{}_{}_{}".format(experiment_batch_name, seed, get_time_str())
     print("Trial name is set to: ", trial_name)
 
     use_wandb = args.wandb
@@ -237,4 +237,5 @@ if __name__ == '__main__':
         log_interval=1,
         save_buffer=False,
         load_buffer=True,
+        load_path_human="/home/caihy/pvp/pvp/pvphuman_buffer_1000.pkl",
     )

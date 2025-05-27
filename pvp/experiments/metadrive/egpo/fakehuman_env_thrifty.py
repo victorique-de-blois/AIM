@@ -188,7 +188,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                         self.takeover = (np.mean((actions - expert_action) ** 2) >= self.model.switch2robot_thresh)
                     else:
                         unc = self.model.compute_unc(self.last_obs)
-                        self.takeover = (unc > self.model.switch2human_thresh)
+                        self.takeover = (unc > (9e-4) * 0.8)
             else:
                 self.takeover = True
             

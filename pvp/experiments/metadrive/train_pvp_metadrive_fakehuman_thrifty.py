@@ -24,7 +24,7 @@ from pvp.sb3.common.env_util import make_vec_env
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--exp_name", default="thrifty_0421", type=str, help="The name for this batch of experiments."
+        "--exp_name", default="ens_0421", type=str, help="The name for this batch of experiments."
     )
     parser.add_argument("--batch_size", default=1024, type=int)
     parser.add_argument("--learning_starts", default=10, type=int)

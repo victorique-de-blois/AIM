@@ -7,8 +7,6 @@ import warnings
 from copy import deepcopy
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
-from torchmetrics import PrecisionRecallCurve
-from torchmetrics.classification import BinaryAveragePrecision
 import numpy as np
 import torch as th
 import gym
