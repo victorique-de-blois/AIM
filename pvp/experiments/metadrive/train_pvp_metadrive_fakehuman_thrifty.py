@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
     # ===== Set up some arguments =====
     # control_device = args.device
-    experiment_batch_name = "{}".format(args.exp_name)
+    experiment_batch_name = "{}_0529".format(args.exp_name)
     if args.only_bc_loss == "True":
         experiment_batch_name = "HG-DAgger"
     seed = args.seed
