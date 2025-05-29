@@ -435,6 +435,7 @@ class PVPTD3ENS(PVPTD3):
                 avg_stat[key] += np.mean(values) / self.k
         
         avg_stat["human_buffer_size"] = self.human_data_buffer.pos
+        avg_stat["ep_takeover"] = self.human_data_buffer.pos / self.num_timesteps
         for key, values in avg_stat.items():
             self.logger.record("train/{}".format(key), values)
         

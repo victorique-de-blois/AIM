@@ -380,6 +380,7 @@ class PVPTD3ENS(PVPTD3):
         stat_recorder["wall_steps"] = self.human_data_buffer.pos
         stat_recorder["num_gd"] = self.num_gd
         stat_recorder["human_buffer_size"] = self.human_data_buffer.pos
+        stat_recorder["ep_takeover"] = self.human_data_buffer.pos / self.num_timesteps
         if hasattr(self, "trained"):
             stat_recorder["switch2human_thresh"] = self.switch2human_thresh
             stat_recorder["switch2robot_thresh"] = self.switch2robot_thresh
