@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
     # ===== Set up some arguments =====
     # control_device = args.device
-    experiment_batch_name = "{}_offline".format("PVP")
+    experiment_batch_name = "{}_offline".format("Thrifty")
     seed = args.seed
     trial_name = "{}_{}_{}".format(experiment_batch_name, seed, get_time_str())
     print("Trial name is set to: ", trial_name)
@@ -237,5 +237,5 @@ if __name__ == '__main__':
         log_interval=1,
         save_buffer=False,
         load_buffer=True,
-        load_path_human="/home/caihy/pvp/pvp/pvphuman_buffer_1000.pkl",
+        load_path_human="/home/caihy/pvp/pvp/ens_human_buffer_2200.pkl",
     )

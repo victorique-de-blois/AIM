@@ -28,7 +28,7 @@ if __name__ == '__main__':
     )
     parser.add_argument("--batch_size", default=1024, type=int)
     parser.add_argument("--learning_starts", default=10, type=int)
-    parser.add_argument("--save_freq", default=2500, type=int)
+    parser.add_argument("--save_freq", default=100, type=int)
     parser.add_argument("--seed", default=0, type=int, help="The random seed.")
     parser.add_argument("--wandb", type=bool, default=True, help="Set to True to upload stats to wandb.")
     parser.add_argument("--wandb_project", type=str, default="ICML2025AIM", help="The project name for wandb.")
@@ -211,12 +211,12 @@ if __name__ == '__main__':
         data, params, pytorch_variables = load_from_zip_file(ckpt, device=model.device, print_system_info=False)
         model.set_parameters(params, exact_match=True, device=model.device)
 
-    eval_freq, n_eval_episodes = 50 // num_train_envs, 50
+    eval_freq, n_eval_episodes = 10 // num_train_envs, 100
 
     # ===== Launch training =====
     model.learn(
         # training
-        total_timesteps=50_000,
+        total_timesteps=5000,
         callback=callbacks,
         reset_num_timesteps=True,
 
@@ -235,7 +235,7 @@ if __name__ == '__main__':
         # logging
         tb_log_name=experiment_batch_name,
         log_interval=1,
-        save_buffer=True,
+        save_buffer=False,
         load_buffer=False,
         save_path_human = Path(log_dir) / Path("human_buffer_tb1_pvp") / (str(seed)),
         save_path_replay = Path(log_dir) / Path("novice_buffer_tb1_pvp") / (str(seed)),

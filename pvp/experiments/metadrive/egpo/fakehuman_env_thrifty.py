@@ -189,6 +189,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                     else:
                         unc = self.model.compute_unc(self.last_obs)
                         self.takeover = (unc > (9e-4) * 0.8)
+                        #self.takeover = (unc > self.model.switch2human_thresh) #self.config['thr_classifier']
             else:
                 self.takeover = True
             

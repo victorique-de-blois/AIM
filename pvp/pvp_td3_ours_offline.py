@@ -107,7 +107,7 @@ class PVPTD3ENS(PVPTD3):
 
             ##first training of student policies: bc
             import tqdm
-            for _ in tqdm.trange(5000, desc="Gradient Steps"):
+            for _ in tqdm.trange(2000, desc="Gradient Steps"):
                 idx = np.random.randint(200, min(max_pos,timestep), size=batch_size)
                 replay_data = self.human_data_buffer._get_samples(idx, env=self._vec_normalize_env)
                 #replay_data = self.human_data_buffer.sample(int(batch_size), env=self._vec_normalize_env)
