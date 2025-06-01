@@ -206,7 +206,7 @@ class PVPTD3ENS(PVPTD3):
                 self._on_step()
 
             callback.on_rollout_end()
-            if self.num_timesteps % 50 == 0:
+            if self.num_timesteps % 5 == 0:
                 gradient_steps = self.gradient_steps
                 assert gradient_steps > 0
                 # Special case when the user passes `gradient_steps=0`

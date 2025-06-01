@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
     # ===== Set up some arguments =====
     # control_device = args.device
-    experiment_batch_name = "{}_offline".format("Thrifty")
+    experiment_batch_name = "{}_offline".format("Ours_0530")
     seed = args.seed
     trial_name = "{}_{}_{}".format(experiment_batch_name, seed, get_time_str())
     print("Trial name is set to: ", trial_name)
@@ -211,12 +211,12 @@ if __name__ == '__main__':
         data, params, pytorch_variables = load_from_zip_file(ckpt, device=model.device, print_system_info=False)
         model.set_parameters(params, exact_match=True, device=model.device)
 
-    eval_freq, n_eval_episodes = 50 // num_train_envs, 50
+    eval_freq, n_eval_episodes = 5 // num_train_envs, 100
 
     # ===== Launch training =====
     model.learn_offline(
         # training
-        total_timesteps=50_000,
+        total_timesteps=4000,
         callback=callbacks,
         reset_num_timesteps=True,
 
