@@ -1,9 +1,3 @@
-"""
-Compared to original file:
-1. use fakehumanenv
-2. new config: free_level
-3. buffer_size and total_timesteps set to 150_000
-"""
 import argparse
 import os
 from pathlib import Path
@@ -11,7 +5,7 @@ import uuid
 
 from pvp.experiments.metadrive.egpo.fakehuman_env_ours import FakeHumanEnv
 from pvp.experiments.metadrive.human_in_the_loop_env import HumanInTheLoopEnv
-from pvp.pvp_td3_ours import PVPTD3ENS
+from pvp.pvp_td3_ours import AIM
 from pvp.sb3.common.callbacks import CallbackList, CheckpointCallback
 from pvp.sb3.common.monitor_ens import Monitor
 from pvp.sb3.common.wandb_callback import WandbCallback
@@ -30,29 +24,15 @@ if __name__ == '__main__':
     parser.add_argument("--learning_starts", default=10, type=int)
     parser.add_argument("--save_freq", default=100, type=int)
     parser.add_argument("--seed", default=0, type=int, help="The random seed.")
-    parser.add_argument("--wandb", type=bool, default=True, help="Set to True to upload stats to wandb.")
-    parser.add_argument("--wandb_project", type=str, default="ICML2025AIM", help="The project name for wandb.")
-    parser.add_argument("--wandb_team", type=str, default="victorique", help="The team name for wandb.")
+    parser.add_argument("--wandb", type=bool, default=False, help="Set to True to upload stats to wandb.")
+    parser.add_argument("--wandb_project", type=str, default="", help="The project name for wandb.")
+    parser.add_argument("--wandb_team", type=str, default="", help="The team name for wandb.")
     parser.add_argument("--log_dir", type=str, default="/home/caihy/pvp", help="Folder to store the logs.")
-    parser.add_argument("--free_level", type=float, default=0.95)
     parser.add_argument("--bc_loss_weight", type=float, default=0.0)
-
-    # parser.add_argument(
-    #     "--intervention_start_stop_td", default=True, type=bool, help="Whether to use intervention_start_stop_td."
-    # )
-
     parser.add_argument("--adaptive_batch_size", default="False", type=str)
     parser.add_argument("--only_bc_loss", default="False", type=str)
     parser.add_argument("--ckpt", default="", type=str)
-
     parser.add_argument("--toy_env", action="store_true", help="Whether to use a toy environment.")
-    # parser.add_argument(
-    #     "--device",
-    #     required=True,
-    #     choices=['wheel', 'gamepad', 'keyboard'],
-    #     type=str,
-    #     help="The control device, selected from [wheel, gamepad, keyboard]."
-    # )
     parser.add_argument("--thr_classifier", type=float, default=0.95)
     parser.add_argument("--init_bc_steps", type=int, default=200)
     parser.add_argument("--thr_actdiff", type=float, default=0.4)
@@ -61,11 +41,9 @@ if __name__ == '__main__':
 
     # ===== Set up some arguments =====
     # control_device = args.device
-    experiment_batch_name = "{}_0529".format(args.exp_name)
-    if args.only_bc_loss == "True":
-        experiment_batch_name = "HG-DAgger"
+    experiment_batch_name = args.exp_name
     seed = args.seed
-    trial_name = "{}_{}_{}".format("ours", seed, get_time_str())
+    trial_name = "{}_{}_{}".format("AIM", seed, get_time_str())
     print("Trial name is set to: ", trial_name)
 
     use_wandb = args.wandb
@@ -82,7 +60,6 @@ if __name__ == '__main__':
     os.makedirs(trial_dir, exist_ok=False)  # Avoid overwritting old experiment
     print(f"We start logging training data into {trial_dir}")
 
-    free_level = args.free_level
     thr_classifier = args.thr_classifier
     init_bc_steps = args.init_bc_steps
     thr_actdiff = args.thr_actdiff
@@ -91,15 +68,6 @@ if __name__ == '__main__':
 
         # Environment config
         env_config=dict(
-
-            # Original real human exp env config:
-            # use_render=True,  # Open the interface
-            # manual_control=True,  # Allow receiving control signal from external device
-            # controller=control_device,
-            # window_size=(1600, 1100),
-
-            # FakeHumanEnv config:
-            free_level=free_level,
             thr_classifier=thr_classifier,
             init_bc_steps=init_bc_steps,
             thr_actdiff=thr_actdiff,
@@ -107,7 +75,6 @@ if __name__ == '__main__':
 
         # Algorithm config
         algo=dict(
-            # intervention_start_stop_td=args.intervention_start_stop_td,
             adaptive_batch_size=args.adaptive_batch_size,
             bc_loss_weight=args.bc_loss_weight,
             only_bc_loss=args.only_bc_loss,
@@ -118,16 +85,16 @@ if __name__ == '__main__':
             policy=TD3Policy,
             replay_buffer_class=HACOReplayBuffer,
             replay_buffer_kwargs=dict(
-                discard_reward=True,  # We run in reward-free manner!
+                discard_reward=True,
             ),
             policy_kwargs=dict(net_arch=[256, 256]),
             env=None,
             learning_rate=1e-4,
             q_value_bound=1,
             optimize_memory_usage=True,
-            buffer_size=50_000,  # We only conduct experiment less than 50K steps
-            learning_starts=args.learning_starts,  # The number of steps before
-            batch_size=args.batch_size,  # Reduce the batch size for real-time copilot
+            buffer_size=50_000,
+            learning_starts=args.learning_starts,
+            batch_size=args.batch_size,
             tau=0.005,
             gamma=0.99,
             train_freq=(1, "step"),
@@ -135,7 +102,6 @@ if __name__ == '__main__':
             tensorboard_log=trial_dir,
             create_eval_env=False,
             verbose=2,
-            #seed=seed,
             device="auto",
             num_instances=1,
             policy_delay=25,
@@ -151,7 +117,6 @@ if __name__ == '__main__':
     )
     if args.toy_env:
         config["env_config"].update(
-            # Here we set num_scenarios to 1, remove all traffic, and fix the map to be a very simple one.
             num_scenarios=1,
             traffic_density=0.0,
             map="COT"
@@ -166,7 +131,7 @@ if __name__ == '__main__':
     
     num_train_envs = 1
     train_env = _make_train_env()
-    config["algo"]["env"] = train_env #make_vec_env(_make_train_env, n_envs=num_train_envs, vec_env_cls=SubprocVecEnv)
+    config["algo"]["env"] = train_env
     assert config["algo"]["env"] is not None
 
     # ===== Also build the eval env =====
@@ -183,7 +148,7 @@ if __name__ == '__main__':
         eval_env = Monitor(env=eval_env, filename=str(trial_dir))
         return eval_env
 
-    eval_env = make_vec_env(_make_eval_env, n_envs=5, vec_env_cls=SubprocVecEnv)
+    eval_env = make_vec_env(_make_eval_env, n_envs=1, vec_env_cls=SubprocVecEnv)
     
     # ===== Setup the callbacks =====
     save_freq = args.save_freq // num_train_envs  # Number of steps per model checkpoint
@@ -203,7 +168,7 @@ if __name__ == '__main__':
     callbacks = CallbackList(callbacks)
 
     # ===== Setup the training algorithm =====
-    model = PVPTD3ENS(**config["algo"])
+    model = AIM(**config["algo"])
     train_env.env.env.model = model
 
     if args.ckpt:
@@ -223,12 +188,6 @@ if __name__ == '__main__':
         reset_num_timesteps=True,
 
         # eval
-        # eval_env=None,
-        # eval_freq=-1,
-        # n_eval_episodes=2,
-        # eval_log_path=None,
-
-        # eval
         eval_env=eval_env,
         eval_freq=eval_freq,
         n_eval_episodes=n_eval_episodes,
@@ -239,6 +198,4 @@ if __name__ == '__main__':
         log_interval=1,
         save_buffer=False,
         load_buffer=False,
-        save_path_human = Path(log_dir) / Path("human_buffer_tb1_ours") / (str(seed)),
-        save_path_replay = Path(log_dir) / Path("novice_buffer_tb1_ours") / (str(seed)),
     )

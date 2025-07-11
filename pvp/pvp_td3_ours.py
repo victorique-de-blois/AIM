@@ -47,7 +47,7 @@ def _worker(remote: mp.connection.Connection, parent_remote: mp.connection.Conne
             else:
                 raise NotImplementedError(f"`{cmd}` is not implemented in the worker")
 
-class PVPTD3ENS(PVPTD3):
+class AIM(PVPTD3):
     def __init__(self, num_instances=1, *args, **kwargs):
         self.k = num_instances
         self.classifier = kwargs.get("classifier")
@@ -58,16 +58,16 @@ class PVPTD3ENS(PVPTD3):
         self.num_gd = 0
         self.next_update = 0
         self.estimates = []
-        super(PVPTD3ENS, self).__init__(seed=0, *args, **kwargs)
+        super(AIM, self).__init__(seed=0, *args, **kwargs)
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
         state_dicts = ["actors", "critics"]
         return state_dicts, []
     def _excluded_save_params(self) -> List[str]:
-        return super(PVPTD3ENS, self)._excluded_save_params() + [
+        return super(AIM, self)._excluded_save_params() + [
             "ensembles", "remotes", "work_remotes", "processes"
         ]
     def _setup_model(self) -> None:
-        super(PVPTD3ENS, self)._setup_model()
+        super(AIM, self)._setup_model()
         forkserver_available = "forkserver" in mp.get_all_start_methods()
         start_method = "forkserver" if forkserver_available else "spawn"
         ctx = mp.get_context(start_method)

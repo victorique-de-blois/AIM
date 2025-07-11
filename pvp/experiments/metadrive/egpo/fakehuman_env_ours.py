@@ -102,13 +102,6 @@ class FakeHumanEnv(HumanInTheLoopEnv):
         else:
             return super(FakeHumanEnv, self).action_space
 
-    # def _preprocess_actions(self, actions: Union[np.ndarray, Dict[AnyStr, np.ndarray], int]) -> Union[np.ndarray, Dict[AnyStr, np.ndarray], int]:
-    #     if self.config["use_discrete"]:
-    #         print(111)
-    #         return int(actions)
-    #     else:
-    #         return actions
-
     def default_config(self):
         """Revert to use the RL policy (so no takeover signal will be issued from the human)"""
         config = super(FakeHumanEnv, self).default_config()
@@ -118,7 +111,6 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                 "disable_expert": False,
 
                 "agent_policy": EnvInputPolicy,
-                "free_level": 0.95,
                 "init_bc_steps": 200,
                 "lr_classifier": 1e-4,
                 "thr_classifier": 0.5,
@@ -172,28 +164,12 @@ class FakeHumanEnv(HumanInTheLoopEnv):
             action_prob = action_prob[0]
             expert_action = expert_action[0]
 
-            etakeover = (action_prob < 1 - self.config['free_level'])
             if self.config["use_discrete"]:
                 expert_action = self.continuous_to_discrete(expert_action)
-                expert_action = self.discrete_to_continuous(expert_action)
-                
-
-            # from torch.nn import functional as F
-            # if hasattr(self, "model"):
-            #     if not hasattr(self.model, "trained"):
-            #         self.takeover = True
-            #     else:
-            #         if self.takeover:
-            #             self.takeover = (np.mean((actions - expert_action) ** 2) >= self.model.switch2robot_thresh)
-            #         else:
-            #             unc = self.model.compute_unc(self.last_obs)
-            #             self.takeover = (unc > self.model.switch2human_thresh)
-            # else:
-            #     self.takeover = True
-            
+                expert_action = self.discrete_to_continuous(expert_action)            
                     
             if self.total_steps <= self.config['init_bc_steps']:
-                self.takeover = etakeover
+                self.takeover = True
                 self.total_wall_steps += 1
             else:
                 unc = self.compute_uncertainty(actions)
@@ -238,7 +214,6 @@ class FakeHumanEnv(HumanInTheLoopEnv):
             )
 
         assert i["takeover"] == self.takeover
-        i["etakeover"] = etakeover
 
         if self.config["use_discrete"]:
             i["raw_action"] = self.continuous_to_discrete(i["raw_action"])
@@ -282,7 +257,7 @@ class FakeHumanEnv(HumanInTheLoopEnv):
 
 
 if __name__ == "__main__":
-    env = FakeHumanEnv(dict(free_level=0.95, use_render=False))
+    env = FakeHumanEnv(dict(use_render=False))
     env.reset()
     while True:
         _, _, done, info = env.step([0, 1])
