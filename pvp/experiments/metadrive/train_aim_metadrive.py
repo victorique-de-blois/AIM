@@ -18,16 +18,16 @@ from pvp.sb3.common.env_util import make_vec_env
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--exp_name", default="Ours_0421", type=str, help="The name for this batch of experiments."
+        "--exp_name", default="AIM", type=str, help="The name for this batch of experiments."
     )
     parser.add_argument("--batch_size", default=1024, type=int)
     parser.add_argument("--learning_starts", default=10, type=int)
     parser.add_argument("--save_freq", default=100, type=int)
     parser.add_argument("--seed", default=0, type=int, help="The random seed.")
-    parser.add_argument("--wandb", type=bool, default=False, help="Set to True to upload stats to wandb.")
-    parser.add_argument("--wandb_project", type=str, default="", help="The project name for wandb.")
-    parser.add_argument("--wandb_team", type=str, default="", help="The team name for wandb.")
-    parser.add_argument("--log_dir", type=str, default="/home/caihy/pvp", help="Folder to store the logs.")
+    parser.add_argument("--wandb", type=bool, default=True, help="Set to True to upload stats to wandb.")
+    parser.add_argument("--wandb_project", type=str, default="ICML0710", help="The project name for wandb.")
+    parser.add_argument("--wandb_team", type=str, default="victorique", help="The team name for wandb.")
+    parser.add_argument("--log_dir", type=str, default="/home/caihy/aim", help="Folder to store the logs.")
     parser.add_argument("--bc_loss_weight", type=float, default=0.0)
     parser.add_argument("--adaptive_batch_size", default="False", type=str)
     parser.add_argument("--only_bc_loss", default="False", type=str)
@@ -35,7 +35,6 @@ if __name__ == '__main__':
     parser.add_argument("--toy_env", action="store_true", help="Whether to use a toy environment.")
     parser.add_argument("--thr_classifier", type=float, default=0.95)
     parser.add_argument("--init_bc_steps", type=int, default=200)
-    parser.add_argument("--thr_actdiff", type=float, default=0.4)
     
     args = parser.parse_args()
 
@@ -62,15 +61,12 @@ if __name__ == '__main__':
 
     thr_classifier = args.thr_classifier
     init_bc_steps = args.init_bc_steps
-    thr_actdiff = args.thr_actdiff
     # ===== Setup the config =====
     config = dict(
 
         # Environment config
         env_config=dict(
-            thr_classifier=thr_classifier,
             init_bc_steps=init_bc_steps,
-            thr_actdiff=thr_actdiff,
         ),
 
         # Algorithm config
@@ -80,7 +76,6 @@ if __name__ == '__main__':
             only_bc_loss=args.only_bc_loss,
             add_bc_loss="True" if args.bc_loss_weight > 0.0 else "False",
             use_balance_sample=True,
-            thr_classifier=thr_classifier,
             agent_data_ratio=1.0,
             policy=TD3Policy,
             replay_buffer_class=HACOReplayBuffer,
@@ -106,6 +101,8 @@ if __name__ == '__main__':
             num_instances=1,
             policy_delay=25,
             gradient_steps=5,
+            thr_classifier=thr_classifier,
+            init_bc_steps=init_bc_steps,
         ),
 
         # Experiment log

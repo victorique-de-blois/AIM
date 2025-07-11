@@ -113,8 +113,6 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                 "agent_policy": EnvInputPolicy,
                 "init_bc_steps": 200,
                 "lr_classifier": 1e-4,
-                "thr_classifier": 0.5,
-                "thr_actdiff": 0.3,
                 "manual_control": False,
                 "use_render": False,
                 "expert_deterministic": False,
@@ -175,10 +173,10 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                 unc = self.compute_uncertainty(actions)
                 self.takeover = False
                 if not self.last_takeover:
-                    if unc > self.model.switch2human_thresh: #self.config['thr_classifier']:
+                    if unc > self.model.switch2human_thresh:
                         self.takeover = True
                 else:
-                    if np.mean((actions - expert_action) ** 2) > self.model.switch2robot_thresh: #self.config['thr_actdiff']:
+                    if np.mean((actions - expert_action) ** 2) > self.model.switch2robot_thresh:
                         self.takeover = True
                 
             if self.takeover:

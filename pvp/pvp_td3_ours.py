@@ -51,6 +51,7 @@ class AIM(PVPTD3):
     def __init__(self, num_instances=1, *args, **kwargs):
         self.k = num_instances
         self.classifier = kwargs.get("classifier")
+        self.init_bc_steps=kwargs.pop("init_bc_steps")
         self.ensembles = [PVPTD3(seed=_, *args, **kwargs) for _ in range(num_instances)]
         self.actors = th.nn.ModuleList([self.ensembles[_].actor for _ in range(num_instances)])
         self.critics = th.nn.ModuleList([self.ensembles[_].critic for _ in range(num_instances)])
@@ -305,8 +306,6 @@ class AIM(PVPTD3):
         for key in dd:
             if hasattr(self, key):
                 stat_recorder[key] = getattr(self, key)
-        
-        self.init_bc_steps = 200
         
         if not hasattr(self, "trained"):
             stat_recorder["wall_steps"] = self.num_timesteps
