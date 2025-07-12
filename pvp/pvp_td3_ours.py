@@ -22,14 +22,14 @@ from pvp.sb3.common.type_aliases import GymEnv, MaybeCallback, RolloutReturn, Sc
 from pvp.sb3.common.utils import polyak_update
 from pvp.sb3.haco.haco_buffer import HACOReplayBuffer, concat_samples
 from pvp.sb3.td3.td3 import TD3
-from pvp.pvp_td3_ins import PVPTD3
+from pvp.pvp_td3_ins import BCTrainer
 import multiprocessing as mp
 from pvp.sb3.common.utils import safe_mean, should_collect_more_steps
 from pvp.sb3.common.vec_env import VecEnv
 
 logger = logging.getLogger(__name__)
 
-def _worker(remote: mp.connection.Connection, parent_remote: mp.connection.Connection, idx: int, model: PVPTD3) -> None:
+def _worker(remote: mp.connection.Connection, parent_remote: mp.connection.Connection, idx: int, model: BCTrainer) -> None:
         parent_remote.close()
         while True:
             cmd, data = remote.recv()
@@ -47,40 +47,60 @@ def _worker(remote: mp.connection.Connection, parent_remote: mp.connection.Conne
             else:
                 raise NotImplementedError(f"`{cmd}` is not implemented in the worker")
 
-class AIM(PVPTD3):
-    def __init__(self, num_instances=1, *args, **kwargs):
+class AIM(TD3):
+    def __init__(self, num_instances=1, use_balance_sample=True, q_value_bound=1., *args, **kwargs):
         self.k = num_instances
         self.classifier = kwargs.get("classifier")
         self.init_bc_steps=kwargs.pop("init_bc_steps")
-        self.ensembles = [PVPTD3(seed=_, *args, **kwargs) for _ in range(num_instances)]
+        self.ensembles = [BCTrainer(seed=_, *args, **kwargs) for _ in range(num_instances)]
         self.actors = th.nn.ModuleList([self.ensembles[_].actor for _ in range(num_instances)])
         self.critics = th.nn.ModuleList([self.ensembles[_].critic for _ in range(num_instances)])
         self.pvpinstance = False
         self.num_gd = 0
         self.next_update = 0
         self.estimates = []
+        
+        # if "cql_coefficient" in kwargs:
+        #     self.cql_coefficient = kwargs["cql_coefficient"]
+        #     kwargs.pop("cql_coefficient")
+        # else:
+        #     self.cql_coefficient = 1
+        # if "replay_buffer_class" not in kwargs:
+        #     kwargs["replay_buffer_class"] = HACOReplayBuffer
+
+        # if "intervention_start_stop_td" in kwargs:
+        #     self.intervention_start_stop_td = kwargs["intervention_start_stop_td"]
+        #     kwargs.pop("intervention_start_stop_td")
+        # else:
+        #     # Default to set it True. We find this can improve the performance and user experience.
+        #     self.intervention_start_stop_td = True
+
+        self.extra_config = {}
+        # for k in ["no_done_for_positive", "no_done_for_negative", "reward_0_for_positive", "reward_0_for_negative",
+        #           "reward_n2_for_intervention", "reward_1_for_all", "use_weighted_reward", "remove_negative",
+        #           "adaptive_batch_size", "add_bc_loss", "only_bc_loss"]:
+        #     if k in kwargs:
+        #         v = kwargs.pop(k)
+        #         assert v in ["True", "False"]
+        #         v = v == "True"
+        #         self.extra_config[k] = v
+        for k in ["agent_data_ratio", "bc_loss_weight", "classifier", "thr_classifier"]:
+            if k in kwargs:
+                self.extra_config[k] = kwargs.pop(k)
+
+        self.q_value_bound = q_value_bound
+        self.use_balance_sample = use_balance_sample
+        
         super(AIM, self).__init__(seed=0, *args, **kwargs)
+        
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
         state_dicts = ["actors", "critics"]
         return state_dicts, []
+    
     def _excluded_save_params(self) -> List[str]:
         return super(AIM, self)._excluded_save_params() + [
             "ensembles", "remotes", "work_remotes", "processes"
         ]
-    def _setup_model(self) -> None:
-        super(AIM, self)._setup_model()
-        forkserver_available = "forkserver" in mp.get_all_start_methods()
-        start_method = "forkserver" if forkserver_available else "spawn"
-        ctx = mp.get_context(start_method)
-
-        self.remotes, self.work_remotes = zip(*[ctx.Pipe() for _ in range(self.k)])
-        self.processes = []
-        for i, (work_remote, remote) in enumerate(zip(self.work_remotes, self.remotes)):
-            args = (work_remote, remote, i, self.ensembles[i])
-            process = ctx.Process(target=_worker, args=args, daemon=True)
-            process.start()
-            self.processes.append(process)
-            work_remote.close()
     
     def critic_all(self,
         observation: th.Tensor, action: th.Tensor) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
@@ -431,3 +451,152 @@ class AIM(PVPTD3):
             wandb.log(self.logger.name_to_value, step=self.num_timesteps)
         except:
             pass
+    
+    def _setup_model(self) -> None:
+        super(AIM, self)._setup_model()
+        if self.use_balance_sample:
+                self.human_data_buffer = HACOReplayBuffer(
+                    self.buffer_size,
+                    self.observation_space,
+                    self.action_space,
+                    self.device,
+                    n_envs=self.n_envs,
+                    optimize_memory_usage=self.optimize_memory_usage,
+                    **self.replay_buffer_kwargs
+                )
+        else:
+                self.human_data_buffer = self.replay_buffer
+        forkserver_available = "forkserver" in mp.get_all_start_methods()
+        start_method = "forkserver" if forkserver_available else "spawn"
+        ctx = mp.get_context(start_method)
+
+        self.remotes, self.work_remotes = zip(*[ctx.Pipe() for _ in range(self.k)])
+        self.processes = []
+        for i, (work_remote, remote) in enumerate(zip(self.work_remotes, self.remotes)):
+            args = (work_remote, remote, i, self.ensembles[i])
+            process = ctx.Process(target=_worker, args=args, daemon=True)
+            process.start()
+            self.processes.append(process)
+            work_remote.close()
+    def _store_transition(
+        self,
+        replay_buffer: ReplayBuffer,
+        buffer_action: np.ndarray,
+        new_obs: Union[np.ndarray, Dict[str, np.ndarray]],
+        reward: np.ndarray,
+        dones: np.ndarray,
+        infos: List[Dict[str, Any]],
+    ) -> None:
+        if infos[0]["takeover"] or infos[0]["takeover_start"]:
+            replay_buffer = self.human_data_buffer
+        super(AIM, self)._store_transition(replay_buffer, buffer_action, new_obs, reward, dones, infos)
+
+    def save_replay_buffer(
+        self, path_human: Union[str, pathlib.Path, io.BufferedIOBase], path_replay: Union[str, pathlib.Path,
+                                                                                          io.BufferedIOBase]
+    ) -> None:
+        save_to_pkl(path_human, self.human_data_buffer, self.verbose)
+        super(AIM, self).save_replay_buffer(path_replay)
+
+    def load_replay_buffer(
+        self,
+        path_human: Union[str, pathlib.Path, io.BufferedIOBase],
+        path_replay: Union[str, pathlib.Path, io.BufferedIOBase],
+        truncate_last_traj: bool = True,
+    ) -> None:
+        """
+        Load a replay buffer from a pickle file.
+
+        :param path: Path to the pickled replay buffer.
+        :param truncate_last_traj: When using ``HerReplayBuffer`` with online sampling:
+            If set to ``True``, we assume that the last trajectory in the replay buffer was finished
+            (and truncate it).
+            If set to ``False``, we assume that we continue the same trajectory (same episode).
+        """
+        self.human_data_buffer = load_from_pkl(path_human, self.verbose)
+        assert isinstance(
+            self.human_data_buffer, ReplayBuffer
+        ), "The replay buffer must inherit from ReplayBuffer class"
+
+        # Backward compatibility with SB3 < 2.1.0 replay buffer
+        # Keep old behavior: do not handle timeout termination separately
+        if not hasattr(self.human_data_buffer, "handle_timeout_termination"):  # pragma: no cover
+            self.human_data_buffer.handle_timeout_termination = False
+            self.human_data_buffer.timeouts = np.zeros_like(self.replay_buffer.dones)
+        super(AIM, self).load_replay_buffer(path_replay, truncate_last_traj)
+
+    def learn(
+        self,
+        total_timesteps: int,
+        callback: MaybeCallback = None,
+        log_interval: int = 4,
+        eval_env: Optional[GymEnv] = None,
+        eval_freq: int = -1,
+        n_eval_episodes: int = 5,
+        tb_log_name: str = "run",
+        eval_log_path: Optional[str] = None,
+        reset_num_timesteps: bool = True,
+        save_timesteps: int = 2000,
+        buffer_save_timesteps: int = 200,
+        save_path_human: Union[str, pathlib.Path, io.BufferedIOBase] = "",
+        save_path_replay: Union[str, pathlib.Path, io.BufferedIOBase] = "",
+        save_buffer: bool = False,
+        load_buffer: bool = False,
+        load_path_human: Union[str, pathlib.Path, io.BufferedIOBase] = "",
+        load_path_replay: Union[str, pathlib.Path, io.BufferedIOBase] = "",
+        warmup: bool = False,
+        warmup_steps: int = 5000,
+    ) -> "OffPolicyAlgorithm":
+
+        total_timesteps, callback = self._setup_learn(
+            total_timesteps,
+            eval_env,
+            callback,
+            eval_freq,
+            n_eval_episodes,
+            eval_log_path,
+            reset_num_timesteps,
+            tb_log_name,
+        )
+        if load_buffer:
+            self.load_replay_buffer(load_path_human, load_path_replay)
+        callback.on_training_start(locals(), globals())
+        if warmup:
+            assert load_buffer, "warmup is useful only when load buffer"
+            print("Start warmup with steps: " + str(warmup_steps))
+            self.train(batch_size=self.batch_size, gradient_steps=warmup_steps)
+
+        while self.num_timesteps < total_timesteps:
+            rollout = self.collect_rollouts(
+                self.env,
+                train_freq=self.train_freq,
+                action_noise=self.action_noise,
+                callback=callback,
+                learning_starts=self.learning_starts,
+                replay_buffer=self.replay_buffer,
+                log_interval=log_interval,
+            )
+
+            if rollout.continue_training is False:
+                break
+            if self.num_timesteps > 0 and self.num_timesteps > self.learning_starts:
+                # If no `gradient_steps` is specified,
+                # do as many gradients steps as steps performed during the rollout
+                gradient_steps = self.gradient_steps if self.gradient_steps >= 0 else rollout.episode_timesteps
+                # Special case when the user passes `gradient_steps=0`
+                if gradient_steps > 0:
+                    self.train(batch_size=self.batch_size, gradient_steps=gradient_steps)
+            if save_buffer and self.human_data_buffer.pos > 0 and self.human_data_buffer.pos % buffer_save_timesteps == 0:
+                buffer_location_human = os.path.join(
+                    save_path_human, "human_buffer_" + str(self.human_data_buffer.pos) + ".pkl"
+                )
+                buffer_location_replay = os.path.join(
+                    save_path_replay, "replay_buffer_" + str(self.human_data_buffer.pos) + ".pkl"
+                )
+                logger.info("Saving..." + str(buffer_location_human))
+                logger.info("Saving..." + str(buffer_location_replay))
+                self.save_replay_buffer(buffer_location_human, buffer_location_replay)
+
+        callback.on_training_end()
+
+        return self

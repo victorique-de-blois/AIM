@@ -86,6 +86,7 @@ class TD3(OffPolicyAlgorithm):
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
         monitor_wrapper=False,
+        **kwargs,
     ):
 
         super(TD3, self).__init__(
