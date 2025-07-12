@@ -109,7 +109,6 @@ class FakeHumanEnv(HumanInTheLoopEnv):
             {
                 "use_discrete": False,
                 "disable_expert": False,
-
                 "agent_policy": EnvInputPolicy,
                 "init_bc_steps": 200,
                 "lr_classifier": 1e-4,
@@ -140,7 +139,6 @@ class FakeHumanEnv(HumanInTheLoopEnv):
         self.last_takeover = self.takeover
 
         # ===== Get expert action and determine whether to take over! =====
-
         if self.config["disable_expert"]:
             pass
 
@@ -150,22 +148,16 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                 self.expert = _expert
             last_obs, _ = self.expert.obs_to_tensor(self.last_obs)
             distribution = self.expert.get_distribution(last_obs)
-            log_prob = distribution.log_prob(torch.from_numpy(actions).to(last_obs.device))
-            action_prob = log_prob.exp().detach().cpu().numpy()
-
             if self.config["expert_deterministic"]:
                 expert_action = distribution.mode().detach().cpu().numpy()
             else:
                 expert_action = distribution.sample().detach().cpu().numpy()
-
-            assert expert_action.shape[0] == action_prob.shape[0] == 1
-            action_prob = action_prob[0]
             expert_action = expert_action[0]
 
             if self.config["use_discrete"]:
                 expert_action = self.continuous_to_discrete(expert_action)
                 expert_action = self.discrete_to_continuous(expert_action)            
-                    
+            
             if self.total_steps <= self.config['init_bc_steps']:
                 self.takeover = True
                 self.total_wall_steps += 1
@@ -184,28 +176,16 @@ class FakeHumanEnv(HumanInTheLoopEnv):
                 self.total_wall_steps += (self.total_steps > self.config['init_bc_steps'])
 
         o, r, d, i = super(HumanInTheLoopEnv, self).step(actions)
-        i["miss"] = (np.mean(expert_action ** 2) > 0.2) * (np.mean((self.agent_action - expert_action) ** 2) > 0.1)
-        self.total_miss += i["miss"]
-        i["total_miss"] = self.total_miss
-        try:
-            self.model.miss = int(i["miss"])
-            self.model.total_miss = int(self.total_miss)
-        except:
-            pass
         self.takeover_recorder.append(self.takeover)
         self.total_steps += 1
 
-        if not self.config["disable_expert"]:
-            i["takeover_log_prob"] = log_prob.item()
-
-        if self.config["use_render"]:  # and self.config["main_exp"]: #and not self.config["in_replay"]:
+        if self.config["use_render"]:
             super(HumanInTheLoopEnv, self).render(
                 text={
                     "Total Cost": round(self.total_cost, 2),
                     "Takeover Cost": round(self.total_takeover_cost, 2),
                     "Takeover": "TAKEOVER" if self.takeover else "NO",
                     "Total Step": self.total_steps,
-                    # "Total Time": time.strftime("%M:%S", time.gmtime(time.time() - self.start_time)),
                     "Takeover Rate": "{:.2f}%".format(np.mean(np.array(self.takeover_recorder) * 100)),
                     "Pause": "Press E",
                 }
@@ -240,7 +220,6 @@ class FakeHumanEnv(HumanInTheLoopEnv):
         self.total_takeover_count += 1 if self.takeover else 0
         engine_info["total_takeover_count"] = self.total_takeover_count
         engine_info["total_cost"] = self.total_cost
-        # engine_info["total_cost_so_far"] = self.total_cost
         sw = (last_t != self.takeover)
         self.total_switch += sw
         engine_info["switch"] = sw
@@ -259,8 +238,6 @@ if __name__ == "__main__":
     env.reset()
     while True:
         _, _, done, info = env.step([0, 1])
-        # done = tm or tc
-        # env.render(mode="topdown")
         if done:
             print(info)
             env.reset()

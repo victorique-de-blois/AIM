@@ -116,25 +116,7 @@ class Monitor(gym.Wrapper):
             ep_info = {"r": round(ep_rew, 6), "l": ep_len, "t": round(time.time() - self.t_start, 6)}
         else:
             ep_info = {}
-        special_words = ["miss"]
-        for key in special_words:
-            ep_info[key] = info[key]
-            ep_data = np.asarray(self.episode_infos[key])
-            ep_info["ep_{}".format(key)] = np.mean(ep_data)
-            
-        if done:
-            ep_info = {} #
-        else:
-            ep_info = {}
-        special_words = ["miss"]
-        for key in special_words:
-            ep_info[key] = info[key]
-            ep_data = np.asarray(self.episode_infos2[key])
-            ep_info["ep_{}".format(key)] = np.mean(ep_data)
-            try:
-                self.env.model.ep_miss_mean = ep_info["ep_miss"]
-            except:
-                pass
+        
         if done:
             self.needs_reset = True
             ep_rew = sum(self.rewards)
