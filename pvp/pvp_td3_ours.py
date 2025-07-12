@@ -48,7 +48,7 @@ def _worker(remote: mp.connection.Connection, parent_remote: mp.connection.Conne
                 raise NotImplementedError(f"`{cmd}` is not implemented in the worker")
 
 class AIM(TD3):
-    def __init__(self, num_instances=1, use_balance_sample=True, q_value_bound=1., *args, **kwargs):
+    def __init__(self, num_instances=1, q_value_bound=1., *args, **kwargs):
         self.k = num_instances
         self.classifier = kwargs.get("classifier")
         self.init_bc_steps=kwargs.pop("init_bc_steps")
@@ -59,37 +59,13 @@ class AIM(TD3):
         self.num_gd = 0
         self.next_update = 0
         self.estimates = []
-        
-        # if "cql_coefficient" in kwargs:
-        #     self.cql_coefficient = kwargs["cql_coefficient"]
-        #     kwargs.pop("cql_coefficient")
-        # else:
-        #     self.cql_coefficient = 1
-        # if "replay_buffer_class" not in kwargs:
-        #     kwargs["replay_buffer_class"] = HACOReplayBuffer
-
-        # if "intervention_start_stop_td" in kwargs:
-        #     self.intervention_start_stop_td = kwargs["intervention_start_stop_td"]
-        #     kwargs.pop("intervention_start_stop_td")
-        # else:
-        #     # Default to set it True. We find this can improve the performance and user experience.
-        #     self.intervention_start_stop_td = True
 
         self.extra_config = {}
-        # for k in ["no_done_for_positive", "no_done_for_negative", "reward_0_for_positive", "reward_0_for_negative",
-        #           "reward_n2_for_intervention", "reward_1_for_all", "use_weighted_reward", "remove_negative",
-        #           "adaptive_batch_size", "add_bc_loss", "only_bc_loss"]:
-        #     if k in kwargs:
-        #         v = kwargs.pop(k)
-        #         assert v in ["True", "False"]
-        #         v = v == "True"
-        #         self.extra_config[k] = v
-        for k in ["agent_data_ratio", "bc_loss_weight", "classifier", "thr_classifier"]:
+        for k in ["thr_classifier"]:
             if k in kwargs:
                 self.extra_config[k] = kwargs.pop(k)
 
         self.q_value_bound = q_value_bound
-        self.use_balance_sample = use_balance_sample
         
         super(AIM, self).__init__(seed=0, *args, **kwargs)
         
@@ -454,8 +430,7 @@ class AIM(TD3):
     
     def _setup_model(self) -> None:
         super(AIM, self)._setup_model()
-        if self.use_balance_sample:
-                self.human_data_buffer = HACOReplayBuffer(
+        self.human_data_buffer = HACOReplayBuffer(
                     self.buffer_size,
                     self.observation_space,
                     self.action_space,
@@ -464,8 +439,6 @@ class AIM(TD3):
                     optimize_memory_usage=self.optimize_memory_usage,
                     **self.replay_buffer_kwargs
                 )
-        else:
-                self.human_data_buffer = self.replay_buffer
         forkserver_available = "forkserver" in mp.get_all_start_methods()
         start_method = "forkserver" if forkserver_available else "spawn"
         ctx = mp.get_context(start_method)

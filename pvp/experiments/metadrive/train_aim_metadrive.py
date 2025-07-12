@@ -71,12 +71,6 @@ if __name__ == '__main__':
 
         # Algorithm config
         algo=dict(
-            adaptive_batch_size=args.adaptive_batch_size,
-            bc_loss_weight=args.bc_loss_weight,
-            only_bc_loss=args.only_bc_loss,
-            add_bc_loss="True" if args.bc_loss_weight > 0.0 else "False",
-            use_balance_sample=True,
-            agent_data_ratio=1.0,
             policy=TD3Policy,
             replay_buffer_class=HACOReplayBuffer,
             replay_buffer_kwargs=dict(
@@ -145,7 +139,7 @@ if __name__ == '__main__':
         eval_env = Monitor(env=eval_env, filename=str(trial_dir))
         return eval_env
 
-    eval_env = make_vec_env(_make_eval_env, n_envs=5, vec_env_cls=SubprocVecEnv)
+    eval_env = make_vec_env(_make_eval_env, n_envs=1, vec_env_cls=SubprocVecEnv)
     
     # ===== Setup the callbacks =====
     save_freq = args.save_freq // num_train_envs  # Number of steps per model checkpoint
@@ -180,7 +174,7 @@ if __name__ == '__main__':
     # ===== Launch training =====
     model.learn(
         # training
-        total_timesteps=5000,
+        total_timesteps=2500,
         callback=callbacks,
         reset_num_timesteps=True,
 
