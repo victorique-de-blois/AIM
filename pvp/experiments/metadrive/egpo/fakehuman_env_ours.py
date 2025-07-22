@@ -9,7 +9,7 @@ from metadrive.engine.logger import get_logger
 from metadrive.examples.ppo_expert.numpy_expert import ckpt_path
 from metadrive.policy.env_input_policy import EnvInputPolicy
 
-from pvp.experiments.metadrive.human_in_the_loop_env_thrifty import HumanInTheLoopEnv
+from pvp.experiments.metadrive.human_in_the_loop_env import HumanInTheLoopEnv
 
 FOLDER_PATH = pathlib.Path(__file__).parent
 

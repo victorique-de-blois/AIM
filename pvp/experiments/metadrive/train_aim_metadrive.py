@@ -4,7 +4,6 @@ from pathlib import Path
 import uuid
 
 from pvp.experiments.metadrive.egpo.fakehuman_env_ours import FakeHumanEnv
-from pvp.experiments.metadrive.human_in_the_loop_env import HumanInTheLoopEnv
 from pvp.pvp_td3_ours import AIM
 from pvp.sb3.common.callbacks import CallbackList, CheckpointCallback
 from pvp.sb3.common.monitor_ens import Monitor

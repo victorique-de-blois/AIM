@@ -7,7 +7,10 @@ from metadrive.engine.core.onscreen_message import ScreenMessage
 from metadrive.envs.safe_metadrive_env import SafeMetaDriveEnv
 from metadrive.policy.manual_control_policy import TakeoverPolicyWithoutBrake
 from metadrive.utils.math import safe_clip
-
+from pvp.sb3.td3.policies import TD3Policy
+from pvp.sb3.common.utils import get_schedule_fn
+import torch as th
+from pvp.sb3.common.utils import safe_mean
 ScreenMessage.SCALE = 0.1
 
 HUMAN_IN_THE_LOOP_ENV_CONFIG = {
@@ -50,7 +53,21 @@ class HumanInTheLoopEnv(SafeMetaDriveEnv):
     agent_action = None
     in_pause = False
     start_time = time.time()
-
+    
+    classifier: TD3Policy
+    
+    def __init__(self, config):
+        super(HumanInTheLoopEnv, self).__init__(config)
+        self.classifier = TD3Policy(self.observation_space,
+                    self.action_space,
+                    get_schedule_fn(1e-4))
+        self.classifier = self.classifier.to("cuda")
+        self.classifier.set_training_mode(True)
+    def compute_uncertainty(self, actions):
+        th_obs = th.from_numpy(np.expand_dims(self.last_obs, 0)).to(self.classifier.device)
+        th_actions = th.from_numpy(np.expand_dims(actions, 0)).to(self.classifier.device)
+        unc = self.classifier.critic(th_obs, th_actions)[0].item()
+        return unc
     def default_config(self):
         config = super(HumanInTheLoopEnv, self).default_config()
         config.update(HUMAN_IN_THE_LOOP_ENV_CONFIG, allow_add_new_key=True)
