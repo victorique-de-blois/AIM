@@ -24,18 +24,19 @@ if __name__ == '__main__':
         "--exp_name", default="AIM_minigrid", type=str, help="The name for this batch of experiments."
     )
     parser.add_argument("--seed", default=0, type=int, help="The random seed.")
-    parser.add_argument("--use_fake_human_with_failure", action="store_true")
+    parser.add_argument("--noisy_expert", action="store_true")
     parser.add_argument("--wandb", action="store_true", help="Set to True to upload stats to wandb.")
     parser.add_argument("--wandb_project", type=str, default="", help="The project name for wandb.")
     parser.add_argument("--wandb_team", type=str, default="", help="The team name for wandb.")
+    parser.add_argument("--delta", type=float, default=0.1)
     args = parser.parse_args()
 
     # ===== Set up some arguments =====
-    use_fake_human_with_failure = args.use_fake_human_with_failure
+    use_fake_human_with_failure = args.noisy_expert
     experiment_batch_name = "{}_{}".format(args.exp_name, "fourroomlarge")
     seed = args.seed
     trial_name = "{}_{}_{}".format("AIM", seed, get_time_str())
-
+    free_level = 1 - args.delta
 
     use_wandb = args.wandb
     project_name = args.wandb_project
@@ -86,8 +87,7 @@ if __name__ == '__main__':
             seed=seed,
             device="auto",
             init_bc_steps = 400,
-            thr_classifier = 0.9,
-            gamma_classifier = -1,
+            thr_classifier = free_level,
         ),
 
         # Experiment log

@@ -2,7 +2,7 @@ import argparse
 import os
 from pathlib import Path
 import uuid
-from aim.experiments.metadrive.egpo.ppoexpert_in_the_loop_env import PPOExpertInTheLoopEnv
+from aim.experiments.metadrive.ppoexpert_in_the_loop_env import PPOExpertInTheLoopEnv
 from aim.aim_trainer import AIM
 from aim.sb3.common.callbacks import CallbackList, CheckpointCallback
 from aim.sb3.common.monitor_ens import Monitor
@@ -26,12 +26,9 @@ if __name__ == '__main__':
     parser.add_argument("--wandb_project", type=str, default="", help="The project name for wandb.")
     parser.add_argument("--wandb_team", type=str, default="", help="The team name for wandb.")
     parser.add_argument("--log_dir", type=str, default="", help="Folder to store the logs.")
-    parser.add_argument("--bc_loss_weight", type=float, default=0.0)
-    parser.add_argument("--adaptive_batch_size", default="False", type=str)
-    parser.add_argument("--only_bc_loss", default="False", type=str)
     parser.add_argument("--ckpt", default="", type=str)
     parser.add_argument("--toy_env", action="store_true", help="Whether to use a toy environment.")
-    parser.add_argument("--thr_classifier", type=float, default=0.95)
+    parser.add_argument("--delta", type=float, default=0.05)
     parser.add_argument("--init_bc_steps", type=int, default=200)
     
     args = parser.parse_args()
@@ -57,7 +54,7 @@ if __name__ == '__main__':
     os.makedirs(trial_dir, exist_ok=False)  # Avoid overwritting old experiment
     print(f"We start logging training data into {trial_dir}")
 
-    thr_classifier = args.thr_classifier
+    free_level = 1 - args.delta
     init_bc_steps = args.init_bc_steps
     # ===== Setup the config =====
     config = dict(
@@ -93,7 +90,7 @@ if __name__ == '__main__':
             num_instances=1,
             policy_delay=25,
             gradient_steps=5,
-            thr_classifier=thr_classifier,
+            thr_classifier=free_level,
             init_bc_steps=init_bc_steps,
         ),
 
