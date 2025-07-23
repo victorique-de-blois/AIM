@@ -86,8 +86,8 @@ if __name__ == '__main__':
             verbose=2,
             seed=seed,
             device="auto",
-            init_bc_steps = 100,
-            thr_classifier = 0.95,
+            init_bc_steps = 400,
+            thr_classifier = 0.9,
             gamma_classifier = -1,
         ),
 
@@ -170,7 +170,7 @@ if __name__ == '__main__':
 
         # eval
         eval_env=eval_env,
-        eval_freq=50,  # Evaluate every 20 steps in training.
+        eval_freq=20,
         n_eval_episodes=50,
         eval_log_path=str(trial_dir),
 
