@@ -189,7 +189,7 @@ if __name__ == '__main__':
     # ===== Launch training =====
     model.learn(
         # training
-        total_timesteps=10_000,
+        total_timesteps=100_000,
         callback=callbacks,
         reset_num_timesteps=True,
 

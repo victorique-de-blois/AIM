@@ -163,7 +163,7 @@ def json_to_data(json_string: str, custom_objects: Optional[Dict[str, Any]] = No
             try:
                 base64_object = base64.b64decode(serialization.encode())
                 deserialized_object = cloudpickle.loads(base64_object)
-            except (RuntimeError, TypeError, ValueError):
+            except:
                 warnings.warn(
                     f"Could not deserialize object {data_key}. " +
                     "Consider using `custom_objects` argument to replace " + "this object."
