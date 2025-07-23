@@ -38,7 +38,7 @@ def sample_and_concat(replay_data_agent, replay_data_human, agent_data_index):
     return replay_data
 
 
-class PVPDQN(DQN):
+class AIM_Discrete(DQN):
     classifier: CnnPolicy
     def __init__(self, q_value_bound=1., *args, **kwargs):
         kwargs["replay_buffer_class"] = HACOReplayBuffer
@@ -83,7 +83,7 @@ class PVPDQN(DQN):
         self.delay = 0
 
         self.gradient_steps_multiplier = kwargs.pop("gradient_steps_multiplier", 1)
-        super(PVPDQN, self).__init__(*args, **kwargs)
+        super(AIM_Discrete, self).__init__(*args, **kwargs)
         self.q_value_bound = q_value_bound
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
@@ -106,7 +106,7 @@ class PVPDQN(DQN):
 
         losses = []
         entropies = []
-        stat_recorder["wall_steps"] = self.num_timesteps
+        stat_recorder["wall_steps"] = self.human_data_buffer.pos
 
         if self.adaptive_batch_size:
             replay_data_human = self.human_data_buffer.sample(
@@ -149,7 +149,6 @@ class PVPDQN(DQN):
             n_upd = self.policy_delay
         else:
             n_upd = 0
-
         for _ in tqdm.trange(gradient_steps * n_upd, desc="Gradient Steps"):
             if self.adaptive_batch_size:
                 pass
@@ -232,7 +231,7 @@ class PVPDQN(DQN):
             bc_loss = -lp.mean()
             masked_bc_loss = -masked_lp
 
-            loss = bc_loss
+            loss += self.bc_loss_weight * masked_bc_loss
             stat_recorder["bc_loss"].append(bc_loss.item())
             stat_recorder["masked_bc_loss"].append(masked_bc_loss.item())
 
@@ -369,7 +368,7 @@ class PVPDQN(DQN):
         self.logger.record("train/entropy", np.mean(entropies))
 
     def _setup_model(self) -> None:
-        super(PVPDQN, self)._setup_model()
+        super(AIM_Discrete, self)._setup_model()
         self.human_data_buffer = HACOReplayBuffer(
             self.buffer_size,
             self.observation_space,
@@ -393,7 +392,7 @@ class PVPDQN(DQN):
     ) -> None:
         if infos[0]["takeover"] or infos[0]["takeover_start"]:
             replay_buffer = self.human_data_buffer
-        super(PVPDQN, self)._store_transition(replay_buffer, buffer_action, new_obs, reward, dones, infos, backbone_features=backbone_features)
+        super(AIM_Discrete, self)._store_transition(replay_buffer, buffer_action, new_obs, reward, dones, infos, backbone_features=backbone_features)
 
     def save(
             self,
@@ -452,7 +451,7 @@ class PVPDQN(DQN):
                                                                                           io.BufferedIOBase]
     ) -> None:
         save_to_pkl(path_human, self.human_data_buffer, self.verbose)
-        super(PVPDQN, self).save_replay_buffer(path_replay)
+        super(AIM_Discrete, self).save_replay_buffer(path_replay)
 
     def load_replay_buffer(
         self,
@@ -479,7 +478,7 @@ class PVPDQN(DQN):
         if not hasattr(self.human_data_buffer, "handle_timeout_termination"):  # pragma: no cover
             self.human_data_buffer.handle_timeout_termination = False
             self.human_data_buffer.timeouts = np.zeros_like(self.replay_buffer.dones)
-        super(PVPDQN, self).load_replay_buffer(path_replay, truncate_last_traj)
+        super(AIM_Discrete, self).load_replay_buffer(path_replay, truncate_last_traj)
     
     def learn(
         self,

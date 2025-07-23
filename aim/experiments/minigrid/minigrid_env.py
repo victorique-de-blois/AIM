@@ -450,7 +450,7 @@ def wrap_minigrid_env(env_class, enable_takeover, use_fake_human=False, use_fake
 def get_expert():
     import torch
     from aim.utils.shared_control_monitor import SharedControlMonitor
-    from aim.pvp_dqn import PVPDQN
+    from aim.aim_discrete import AIM_Discrete
     from aim.sb3.common.save_util import load_from_zip_file
     config = dict(
 
@@ -499,7 +499,7 @@ def get_expert():
     env = Monitor(env=env)
     train_env = SharedControlMonitor(env=env, save_freq=100)
     config["algo"]["env"] = train_env
-    model = PVPDQN(**config["algo"])
+    model = AIM_Discrete(**config["algo"])
     ckpt = FOLDER_PATH / "/home/caihy/pvp/aim/experiments/minigrid/best_model_minigrid_4roomlarge.zip"
     print(f"Loading checkpoint from {ckpt}!")
     data, params, pytorch_variables = load_from_zip_file(ckpt, device=model.device, print_system_info=False)
