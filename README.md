@@ -14,7 +14,7 @@ Official release for the code used in the paper: *Robot-Gated Interactive Imitat
 
 ```bash
 git clone https://github.com/metadriverse/aim
-cd aim
+cd AIM
 
 # Create Conda environment
 conda create -n aim python=3.7
@@ -36,7 +36,7 @@ To reproduce the main experiment reported in the paper, run the training script 
 You can also specify an intended switch-to-human frequency `SWITCH_RATE` and initial warm-up steps `WARMUP_STEPS`, depending on your budget of expert involvement. The default `SWITCH_RATE` is 0.05, and the default `WARMUP_STEPS` is 200. 
 
 ```bash
-cd ~/aim
+cd ~/AIM
 
 # Train PPO expert (Skip this if you want)
 python aim/experiments/metadrive/train_ppo_metadrive.py \
@@ -60,7 +60,7 @@ python aim/experiments/metadrive/train_aim_metadrive.py \
 ### Minigrid
 In Minigrid, we provide a pretrained neural expert in `aim/experiments/minigrid/best_model_minigrid_4roomlarge.zip` to approximate human policies. The training script `train_aim_minigrid.py` trains AIM in the Minigrid multi-room environment.
 ```bash
-cd ~/aim
+cd ~/AIM
 python aim/experiments/minigrid/train_aim_minigrid.py \
 --exp_name aim_minigrid \
 --wandb \
