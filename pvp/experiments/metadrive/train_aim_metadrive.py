@@ -2,18 +2,17 @@ import argparse
 import os
 from pathlib import Path
 import uuid
-
-from pvp.experiments.metadrive.egpo.fakehuman_env_ours import FakeHumanEnv
-from pvp.pvp_td3_ours import AIM
-from pvp.sb3.common.callbacks import CallbackList, CheckpointCallback
-from pvp.sb3.common.monitor_ens import Monitor
-from pvp.sb3.common.wandb_callback import WandbCallback
-from pvp.sb3.haco import HACOReplayBuffer
-from pvp.sb3.td3.policies import TD3Policy
-from pvp.utils.shared_control_monitor import SharedControlMonitor
-from pvp.utils.utils import get_time_str
-from pvp.sb3.common.vec_env import DummyVecEnv, VecFrameStack, SubprocVecEnv
-from pvp.sb3.common.env_util import make_vec_env
+from aim.experiments.metadrive.egpo.ppoexpert_in_the_loop_env import PPOExpertInTheLoopEnv
+from aim.aim_trainer import AIM
+from aim.sb3.common.callbacks import CallbackList, CheckpointCallback
+from aim.sb3.common.monitor_ens import Monitor
+from aim.sb3.common.wandb_callback import WandbCallback
+from aim.sb3.haco import HACOReplayBuffer
+from aim.sb3.td3.policies import TD3Policy
+from aim.utils.shared_control_monitor import SharedControlMonitor
+from aim.utils.utils import get_time_str
+from aim.sb3.common.vec_env import DummyVecEnv, VecFrameStack, SubprocVecEnv
+from aim.sb3.common.env_util import make_vec_env
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -113,7 +112,7 @@ if __name__ == '__main__':
         )
 
     def _make_train_env():
-        train_env = FakeHumanEnv(config=config["env_config"], )
+        train_env = PPOExpertInTheLoopEnv(config=config["env_config"], )
         config["algo"]["classifier"] = train_env.classifier
         train_env = Monitor(env=train_env, filename=str(trial_dir))
         train_env = SharedControlMonitor(env=train_env, folder=trial_dir / "data", prefix=trial_name)
@@ -132,8 +131,8 @@ if __name__ == '__main__':
             start_seed=1000,
             horizon=1500,
         )
-        from pvp.experiments.metadrive.human_in_the_loop_env import HumanInTheLoopEnv
-        from pvp.sb3.common.monitor import Monitor
+        from aim.experiments.metadrive.human_in_the_loop_env import HumanInTheLoopEnv
+        from aim.sb3.common.monitor import Monitor
         eval_env = HumanInTheLoopEnv(config=eval_env_config)
         eval_env = Monitor(env=eval_env, filename=str(trial_dir))
         return eval_env
@@ -164,7 +163,7 @@ if __name__ == '__main__':
     if args.ckpt:
         ckpt = Path(args.ckpt)
         print(f"Loading checkpoint from {ckpt}!")
-        from pvp.sb3.common.save_util import load_from_zip_file
+        from aim.sb3.common.save_util import load_from_zip_file
         data, params, pytorch_variables = load_from_zip_file(ckpt, device=model.device, print_system_info=False)
         model.set_parameters(params, exact_match=True, device=model.device)
 
@@ -173,7 +172,7 @@ if __name__ == '__main__':
     # ===== Launch training =====
     model.learn(
         # training
-        total_timesteps=2500,
+        total_timesteps=3500,
         callback=callbacks,
         reset_num_timesteps=True,
 
