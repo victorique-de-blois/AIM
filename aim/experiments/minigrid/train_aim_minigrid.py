@@ -25,9 +25,9 @@ if __name__ == '__main__':
     )
     parser.add_argument("--seed", default=0, type=int, help="The random seed.")
     parser.add_argument("--use_fake_human_with_failure", action="store_true")
-    parser.add_argument("--wandb", type=bool, default=True, help="Set to True to upload stats to wandb.")
-    parser.add_argument("--wandb_project", type=str, default="AIM_minigrid", help="The project name for wandb.")
-    parser.add_argument("--wandb_team", type=str, default="victorique", help="The team name for wandb.")
+    parser.add_argument("--wandb", action="store_true", help="Set to True to upload stats to wandb.")
+    parser.add_argument("--wandb_project", type=str, default="", help="The project name for wandb.")
+    parser.add_argument("--wandb_team", type=str, default="", help="The team name for wandb.")
     args = parser.parse_args()
 
     # ===== Set up some arguments =====
