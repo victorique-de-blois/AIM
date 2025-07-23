@@ -8,8 +8,6 @@ Official release for the code used in the paper: *Robot-Gated Interactive Imitat
 [**Code**](https://github.com/metadriverse/aim) |
 [**Paper**](https://arxiv.org/pdf/2506.09176)
 
-[![](https://github.com/metadriverse/AIM/blob/main/teaser.png)](https://metadriverse.github.io/aim/)
-
 ## Installation
 
 ```bash
