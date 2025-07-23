@@ -500,7 +500,7 @@ def get_expert():
     train_env = SharedControlMonitor(env=env, save_freq=100)
     config["algo"]["env"] = train_env
     model = PVPDQN(**config["algo"])
-    ckpt = FOLDER_PATH / "/home/caihy/pvp/pvp/experiments/minigrid/best_model_minigrid_4roomlarge.zip"
+    ckpt = FOLDER_PATH / "/home/caihy/pvp/aim/experiments/minigrid/best_model_minigrid_4roomlarge.zip"
     print(f"Loading checkpoint from {ckpt}!")
     data, params, pytorch_variables = load_from_zip_file(ckpt, device=model.device, print_system_info=False)
     model.set_parameters(params, exact_match=True, device=model.device)
