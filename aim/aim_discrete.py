@@ -210,7 +210,7 @@ class AIM_Discrete(DQN):
             stat_recorder["no_overlap_rate"].append(no_overlap.float().mean().item())
             stat_recorder["masked_no_overlap_rate"].append((mask * no_overlap).float().mean().item())
 
-            pvp_loss = \
+            aim_loss = \
                 F.mse_loss(
                     mask * current_behavior_q_values,
                     mask * self.q_value_bound * th.ones_like(current_behavior_q_values)
@@ -223,7 +223,7 @@ class AIM_Discrete(DQN):
             # Compute Huber loss (less sensitive to outliers)
             loss_td = F.smooth_l1_loss(current_behavior_q_values, target_q_values)
 
-            loss = loss_td.mean() + pvp_loss.mean()
+            loss = loss_td.mean() + aim_loss.mean()
 
             # BC loss
             lp = torch.distributions.Categorical(logits=current_q_values).log_prob(replay_data.actions_behavior.flatten())
@@ -303,7 +303,7 @@ class AIM_Discrete(DQN):
             # stat_recorder["no_overlap_rate"].append(no_overlap.float().mean().item())
             # stat_recorder["masked_no_overlap_rate"].append((mask * no_overlap).float().mean().item())
 
-            pvp_loss = \
+            aim_loss = \
                 F.mse_loss(
                     mask * current_behavior_q_values,
                     mask * (-self.q_value_bound) * th.ones_like(current_behavior_q_values)
@@ -316,11 +316,11 @@ class AIM_Discrete(DQN):
             # Compute Huber loss (less sensitive to outliers)
             loss_td = F.smooth_l1_loss(current_behavior_q_values, target_q_values)
 
-            #loss = loss_td.mean() + pvp_loss.mean()
+            #loss = loss_td.mean() + aim_loss.mean()
             if self.gamma_classifier >= 0:
-                loss = loss_td.mean() + pvp_loss.mean()
+                loss = loss_td.mean() + aim_loss.mean()
             else:
-                loss = pvp_loss.mean()
+                loss = aim_loss.mean()
             
             # BC loss
             lp = torch.distributions.Categorical(logits=current_q_values).log_prob(replay_data.actions_behavior.flatten())

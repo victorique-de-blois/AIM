@@ -1,5 +1,5 @@
 """
-Training script for training PVP in MiniGrid environment.
+Training script for training aim in MiniGrid environment.
 """
 import argparse
 import os
@@ -8,8 +8,7 @@ from pathlib import Path
 # import gymnasium as gym
 import torch
 
-from aim.experiments.minigrid.minigrid_env import MiniGridMultiRoomN2S4, MiniGridMultiRoomN4S5, \
-    MiniGridEmpty6x6, MiniGridMultiRoomN4S16, wrap_minigrid_env, MiniGridEmpty16x16
+from aim.experiments.minigrid.minigrid_env import MiniGridMultiRoomN4S16, wrap_minigrid_env
 from aim.experiments.minigrid.minigrid_model import MinigridCNN
 from aim.aim_discrete import AIM_Discrete
 from aim.sb3.common.callbacks import CallbackList, CheckpointCallback
@@ -35,7 +34,7 @@ if __name__ == '__main__':
     use_fake_human_with_failure = args.use_fake_human_with_failure
     experiment_batch_name = "{}_{}".format(args.exp_name, "fourroomlarge")
     seed = args.seed
-    trial_name = "{}_{}_{}".format("OURS", seed, get_time_str())
+    trial_name = "{}_{}_{}".format("AIM", seed, get_time_str())
 
 
     use_wandb = args.wandb
@@ -64,7 +63,7 @@ if __name__ == '__main__':
                 64,
             ]),
 
-            # === PVP setting ===
+            # === aim setting ===
             replay_buffer_kwargs=dict(discard_reward=True),
             exploration_fraction=0.0,
             exploration_initial_eps=0.0,

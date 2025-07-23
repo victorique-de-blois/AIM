@@ -464,7 +464,7 @@ def get_expert():
                 64,
             ]),
 
-            # === PVP setting ===
+            # === aim setting ===
             replay_buffer_kwargs=dict(discard_reward=True),  # PZH: We run in reward-free manner!
             exploration_fraction=0.0,  # 1% * 100k = 1k
             exploration_initial_eps=0.0,
@@ -500,7 +500,7 @@ def get_expert():
     train_env = SharedControlMonitor(env=env, save_freq=100)
     config["algo"]["env"] = train_env
     model = AIM_Discrete(**config["algo"])
-    ckpt = FOLDER_PATH / "/home/caihy/pvp/aim/experiments/minigrid/best_model_minigrid_4roomlarge.zip"
+    ckpt = FOLDER_PATH / "best_model_minigrid_4roomlarge.zip"
     print(f"Loading checkpoint from {ckpt}!")
     data, params, pytorch_variables = load_from_zip_file(ckpt, device=model.device, print_system_info=False)
     model.set_parameters(params, exact_match=True, device=model.device)
